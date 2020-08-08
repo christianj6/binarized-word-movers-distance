@@ -4,7 +4,7 @@ setup(
     name='bwmd',
     version='0.0.1',
     description='',
-    url='https://github.com/christianj6/binarized-word-movers-distance.git',
+    url='git+ssh://git@github.com/christianj6/binarized-word-movers-distance.git',
     author='Christian Johnson',
     author_email='chr.a.johnson@gmail.com',
     license='unlicensed',
