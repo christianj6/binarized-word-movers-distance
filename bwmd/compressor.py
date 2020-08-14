@@ -83,7 +83,7 @@ class Encoder(tf.keras.layers.Layer):
             return lambda x: ((x - mn) / (mx - mn)) * (127 - -128) + -128
 
         else:
-            raise('Compression dtype unsupported.')
+            raise Exception('Compression dtype unsupported.')
 
 
     def call(self, input_, transform=False):
