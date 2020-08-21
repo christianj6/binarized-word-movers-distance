@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pickle
 # Silence warnings.
 tf.get_logger().setLevel('ERROR')
 
@@ -319,7 +320,7 @@ class Compressor():
 
 
     @staticmethod
-    def prepare_vectors(vectors, batch_size):
+    def prepare_vectors(vectors, batch_size, shuffle=True):
         '''
         Cast vectors into tensorflow dataset object
         for batching and/or shuffling for improved
@@ -332,6 +333,10 @@ class Compressor():
             batch_size : int
                 Training batch size to which the
                 model was fitted.
+            shuffle : bool
+                Shuffle vectors or not. Needed for use in
+                additional helper functions where
+                shuffling is inappropriate.
 
         Returns
         ---------
@@ -346,9 +351,10 @@ class Compressor():
         prepared_vectors = tf.data.Dataset.from_tensor_slices(vectors)
         # Batch.
         prepared_vectors = prepared_vectors.batch(batch_size)
-        # Shuffle.
-        prepared_vectors = prepared_vectors.shuffle(vectors.shape[0],
-                                        reshuffle_each_iteration=True)
+        if shuffle:
+            # Shuffle.
+            prepared_vectors = prepared_vectors.shuffle(vectors.shape[0],
+                                            reshuffle_each_iteration=True)
         # Prefetch for faster computation.
         prepared_vectors = prepared_vectors.prefetch(batch_size * 4)
 
@@ -397,28 +403,36 @@ class Compressor():
                 Save transformed vectors to file.
         '''
         # Path to export transformed vectors.
-        export_path = f'res\\{path}_compressed_'
+        export_path = f'{path}_compressed_'
         # Get length of file.
         lines = 0
         with open(path, 'r') as f:
             for line in f:
                 lines +=1
 
-        # TODO: Get words.
-        # TODO: Don't shuffle vectors.
+        lines = 150
 
-        # Load all vectors from file.
-        vectors = load_vectors(path, lines, expected_dimensions)
-        # Cast vectors into tensorflow object.
-        vectors = self.prepare_vectors(vectors, self.batch_size)
+        # Load all vectors and words from file.
+        vectors, words = load_vectors(path, lines, expected_dimensions, get_words=True)
+        # Get size of original vector before turning it into a tf dataset.
+        size_original_vector = sys.getsizeof(vectors[0]) * 8
+        # Cast vectors into tensorflow object. Do not shuffle
+        # to preserve compatibility with words.
+        vectors = self.prepare_vectors(vectors, self.batch_size, shuffle=False)
         # Iterate through batches, extracting only the encoded vectors.
+        vectors_encoded = []
+        print('Encoding vectors ...')
         for step, batch in enumerate(vectors):
             code = self.autoencoder.encoder(batch, transform=True)
-            print(code.shape)
-            # TODO: Iterate through vectors and save to file.
+            vectors_encoded.append(code)
 
-        # TODO: Print statistics about reduction.
-        # print(str(sys.getsizeof(input_.numpy()) / 75 * 8), '>>', str(sys.getsizeof(latent.astype('int8')) / 75 * 8))
+        if save:
+            save_vectors(export_path, words, vectors_encoded)
+
+        # Get size of encoded vector.
+        size_encoded_vector = round(sys.getsizeof(vectors_encoded[0]) / self.batch_size * 8)
+        # Print statistics about memory reduction.
+        print(f'Vectors of size {size_original_vector} bits reduced to {size_encoded_vector} bits.')
 
 
     def save(self, path):
@@ -430,11 +444,55 @@ class Compressor():
             path : str
                 Export location.
         '''
-        # TODO: Save self.autoencoder to path with pickle
-        pass
+        # Use tf function because pickling of
+        # dynamic objects is unsupported.
+        self.autoencoder.save_weights(path)
 
 
-def load_vectors(path, size, expected_dimensions):
+    def load(self, path):
+        '''
+        Load trained model from file.
+
+        Parameters
+        ---------
+            path : str
+                Import location.
+        '''
+        self.autoencoder.load_weights(path)
+
+
+def save_vectors(path, words, vectors_batched):
+    '''
+    Save compressed word vectors to file provided
+    aligned corpus of words and their corresponding vectors.
+
+    Parameters
+    ---------
+        path : str
+            Path to save the vectors.
+        words : list
+            Aligned list of vector words.
+        vectors_batched : list
+            List of batches of encoded vectors.
+    '''
+    vectors = []
+    for batch in vectors_batched:
+        # Determine batch size dynamically because
+        # the final batch may not meet the full size.
+        for i in range(batch.shape[0]):
+            vectors.append(batch[i])
+
+    assert len(words) == len(vectors), 'The encoded vectors could not be extracted.'
+
+    print('Exporting compressed vectors ...')
+    with open(path, 'w') as f:
+        for word, vector in zip(words, vectors):
+            f.write(word + '\t')
+            f.write('\t'.join(str(num) for num in vector))
+            f.write('\n')
+
+
+def load_vectors(path, size, expected_dimensions, get_words=False):
     '''
     Load word embedding vectors from file.
 
@@ -448,24 +506,38 @@ def load_vectors(path, size, expected_dimensions):
             Expected size of real-valued vectors. Needed
             to avoid creating a ragged array when there are
             errors in the original data.
+        words : bool
+            Whether or not to return the original
+            words with the vectors.
 
     Returns
     ---------
         vectors : list
             Vectors as np.array objects.
+        words : list
+            Words aligned with vectors.
     '''
+    words = []
     vectors = []
     with open(path, 'r') as f:
         # Show computation updates.
         for i in tqdm(range(size)):
             try:
+                line = f.readline().split()
                 # Get only vectors; first item is the word itself.
-                vector = np.asarray(f.readline().split()[1:], dtype='float32').reshape(1, -1)
+                vector = np.asarray(line[1:], dtype='float32').reshape(1, -1)
+                # Get word.
+                word = line[0]
                 # Error handling to prevent ragged array.
                 if vector.shape[1] == expected_dimensions:
                     vectors.append(vector)
+                    words.append(word)
             except ValueError as e:
                 # Skip vectors which cannot be cast to floats.
-                pass
+                continue
+
+    # Alternative return for words.
+    if get_words:
+        return vectors, words
 
     return vectors

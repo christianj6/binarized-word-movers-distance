@@ -2,26 +2,47 @@ import unittest
 from bwmd.compressor import Compressor, load_vectors
 
 
+# TODO: helper functions to prepare the word similarity task
+
 class TestCase(unittest.TestCase):
-    def test_compressor_1(self):
+    '''
+    '''
+    def test_compressor_functionality(self):
+        '''
+        '''
         # Vectors filepath.
         path = 'res\\glove.840B.300d.txt'
+        # Vector dimension.
+        dim = 300
         # Load vectors.
-        vectors = load_vectors(path, 200_000, 300)
+        vectors = load_vectors(path, 200_000, dim)
         # Split into training and validation.
         train, validation = vectors[:150_000], vectors[150_000:]
         # Instantiate compressor and fit to training data.
-        compressor = Compressor(original_dimensions=300,
+        compressor = Compressor(original_dimensions=dim,
                                     reduced_dimensions=30,
                                         compression='int8')
-        compressor.fit(train, epochs=5)
+        compressor.fit(train, epochs=3)
         # Evaluate loss on validation set.
         compressor.evaluate(validation)
-
         # Transform and save all original vectors.
-        compressor.transform(path, 300, save=True)
+        compressor.transform(path, dim, save=True)
         # Save model.
-        compressor.save()
+        compressor.save('res\\models\\glove_compressor')
+
+
+    def test_compressor_word_similarity(self):
+        '''
+        Test performance of compressed vectors on the
+        semantic word similarity task cf. Tissier (2018).
+        '''
+        pass
+
+
+    def test_compressor_speed(self):
+        '''
+        '''
+        pass
 
 
 ###
