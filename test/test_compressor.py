@@ -2,13 +2,16 @@ import unittest
 from bwmd.compressor import Compressor, load_vectors
 
 
-# TODO: helper functions to prepare the word similarity task
+# TODO: Helper functions to prepare the word similarity task
 
 class TestCase(unittest.TestCase):
     '''
+    Test cases for autoencoder compressor
+    for reduced memory footprint word vectors.
     '''
     def test_compressor_functionality(self):
         '''
+        Test of basic compressor functionality.
         '''
         # Vectors filepath.
         path = 'res\\glove.840B.300d.txt'
@@ -36,26 +39,14 @@ class TestCase(unittest.TestCase):
         Test performance of compressed vectors on the
         semantic word similarity task cf. Tissier (2018).
         '''
+        # TODO: All evaluation test cases.
         pass
 
 
     def test_compressor_speed(self):
         '''
+        Test to compare the speed of compressed
+        vectors against that of original vectors. Use the
+        knn task on the entire vector space.
         '''
         pass
-
-
-###
-
-# TODO: Introduce early stopping when it converges.
-# TODO: Confirm the gradient error can be ignored.
-# TODO: Confirm batch size is appropriate.
-# TODO: Confirm dimensions are appropriate given the (n*m notation in the paper.)
-# TODO: Identify optimal training hyperparameters.
-# TODO: Confirm activation functions are appropriate.
-# TODO: Add more updates.
-# TODO: Adjust reconstruction loss to custom function from Tissier et al.
-# TODO: Evaluate binary embeddings with test script.
-# TODO: Clean, document, comment, annotate.
-
-###

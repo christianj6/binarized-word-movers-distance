@@ -1,9 +1,29 @@
+'''
+OVERVIEW
+This module contains classes and methods for the
+autoencoder compression of pretrained word vectors.
+Autoencoder methods are implemented in Tensorflow
+and wrapped in a meta-class for handling
+model training and vector transformation.
+
+USAGE
+Create an instance of the Compressor meta class
+and first fit() the object on a set of
+pretrained word vectors, contained in a .txt file
+as words and vector values separated by a tab
+character, separated by newlines. Inspect the
+Compressor class to determine the additional
+parameters needed for training, transformation.
+After training, you can transform the same set of
+vectors or another using the transform() method, which
+allows one to immmediately save the transformed vectors
+to a file.
+'''
 import tensorflow as tf
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import pickle
 # Silence warnings.
 tf.get_logger().setLevel('ERROR')
 
@@ -13,7 +33,7 @@ class Encoder(tf.keras.layers.Layer):
     Encode input into lower dimension 'code' representation,
     for decoding by decoder layer.
     '''
-    def __init__(self, reduced_dimensions, compression):
+    def __init__(self, reduced_dimensions:int, compression:str)->None:
         '''
         Initialize layers.
 
@@ -54,7 +74,7 @@ class Encoder(tf.keras.layers.Layer):
 
 
     @staticmethod
-    def get_compression_function(compression):
+    def get_compression_function(compression:str)->'Function':
         '''
         Factory for compression lambda functions, which
         conditionally-reduce encoded float values to
@@ -87,7 +107,7 @@ class Encoder(tf.keras.layers.Layer):
             raise Exception('Compression dtype unsupported.')
 
 
-    def call(self, input_, transform=False):
+    def call(self, input_:np.array, transform:bool=False)->:'tf.Tensor'
         '''
         Pass input through the layer.
         '''
@@ -109,7 +129,8 @@ class Decoder(tf.keras.layers.Layer):
     Decode intermediate 'code' representation, attempting
     to reproduce the original encoder input.
     '''
-    def __init__(self, reduced_dimensions, original_dimensions):
+    def __init__(self, reduced_dimensions:int,
+                        original_dimensions:int=300)->None:
         '''
         Initialize layers.
 
@@ -137,7 +158,7 @@ class Decoder(tf.keras.layers.Layer):
             )
 
 
-    def call(self, code):
+    def call(self, code:'tf.Tensor')->'tf.Tensor':
         '''
         Pass input through the layer.
         '''
@@ -150,7 +171,8 @@ class AutoEncoder(tf.keras.Model):
     Encoder-decoder architecture for producing
     compressed vector representations.
     '''
-    def __init__(self, reduced_dimensions, original_dimensions, compression):
+    def __init__(self, reduced_dimensions:int,
+                    original_dimensions:int=300, compression:str)->None:
         '''
         Initialize encoder and decoder layers.
 
@@ -174,7 +196,7 @@ class AutoEncoder(tf.keras.Model):
         self.decoder = Decoder(reduced_dimensions, original_dimensions)
 
 
-    def call(self, input_):
+    def call(self, input_:np.array)->'tf.Tensor':
         '''
         Pass input through the layers.
         '''
@@ -187,7 +209,7 @@ class AutoEncoder(tf.keras.Model):
         return reconstructed
 
 
-def reconstruction_loss(model, input_):
+def reconstruction_loss(model, input_:'tf.Tensor')->'tf.Tensor':
     '''
     Mean squared error loss.
 
@@ -200,13 +222,15 @@ def reconstruction_loss(model, input_):
 
     Returns
     ---------
-        reconstruction_loss : float
-            Loss evaluation.
+        reconstruction_loss : tf.Tensor
+            Loss evaluation as float cast
+            as tf.Tensor.
     '''
     return tf.reduce_mean(tf.square(tf.subtract(model(input_), input_)))
 
 
-def train(loss, model, optimizer, input_):
+def train(loss, model:tf.Keras.Model,
+                optimizer:'tf.optimizers.Optimizer', input_:'tf.Tensor')->None:
     '''
     Train model by applying gradients to trainable parameters.
 
@@ -238,7 +262,7 @@ class Compressor():
     according to the chosen compression format.
     '''
     def __init__(self, original_dimensions:int=300,
-                        reduced_dimensions:int=60, compression:str='bool_'):
+                        reduced_dimensions:int=60, compression:str='bool_')->None:
         '''
         Initialize autoencoder with appropriate parameters.
 
@@ -261,7 +285,7 @@ class Compressor():
         self.autoencoder = AutoEncoder(reduced_dimensions, original_dimensions, compression)
 
 
-    def fit(self, vectors, epochs:int=20, batch_size:int=75):
+    def fit(self, vectors, epochs:int=20, batch_size:int=75)->None:
         '''
         Fit the autoencoder to a set of training vectors.
 
@@ -301,7 +325,7 @@ class Compressor():
 
 
     @staticmethod
-    def get_learning_rate():
+    def get_learning_rate()->'tf.optimizers.schedule.Schedule':
         '''
         Generate a learning rate schedule to improve
         training stability during later steps.
@@ -320,7 +344,7 @@ class Compressor():
 
 
     @staticmethod
-    def prepare_vectors(vectors, batch_size, shuffle=True):
+    def prepare_vectors(vectors:list, batch_size:int, shuffle=True)->'tf.Tensor':
         '''
         Cast vectors into tensorflow dataset object
         for batching and/or shuffling for improved
@@ -361,7 +385,7 @@ class Compressor():
         return prepared_vectors
 
 
-    def evaluate(self, vectors):
+    def evaluate(self, vectors:list)->None:
         '''
         Evaluate the trained model against
         unseen validation data.
@@ -385,7 +409,7 @@ class Compressor():
         print('\nValidation loss: ', str(round(sum(losses) / len(losses), 3)))
 
 
-    def transform(self, path, expected_dimensions, save=True):
+    def transform(self, path:str, expected_dimensions:int=300, save=True)->None:
         '''
         Transform real-valued vectors to a compressed code
         representation using a trained autoencoder. Option to
@@ -435,7 +459,7 @@ class Compressor():
         print(f'Vectors of size {size_original_vector} bits reduced to {size_encoded_vector} bits.')
 
 
-    def save(self, path):
+    def save(self, path:str)->None:
         '''
         Save trained model to file.
 
@@ -449,7 +473,7 @@ class Compressor():
         self.autoencoder.save_weights(path)
 
 
-    def load(self, path):
+    def load(self, path:str)->None:
         '''
         Load trained model from file.
 
@@ -461,7 +485,7 @@ class Compressor():
         self.autoencoder.load_weights(path)
 
 
-def save_vectors(path, words, vectors_batched):
+def save_vectors(path:str, words:list, vectors_batched:np.array)->None:
     '''
     Save compressed word vectors to file provided
     aligned corpus of words and their corresponding vectors.
@@ -486,13 +510,15 @@ def save_vectors(path, words, vectors_batched):
 
     print('Exporting compressed vectors ...')
     with open(path, 'w') as f:
+        # Save vectors to new line with tab separating word and vector values.
         for word, vector in zip(words, vectors):
             f.write(word + '\t')
             f.write('\t'.join(str(num) for num in vector))
             f.write('\n')
 
 
-def load_vectors(path, size, expected_dimensions, get_words=False):
+def load_vectors(path, size:int,
+                expected_dimensions:int, get_words=False)->list:
     '''
     Load word embedding vectors from file.
 
