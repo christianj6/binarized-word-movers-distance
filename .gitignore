@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Compressed vector files.
+*.txtc
+res/*.txt
+
+# Saved compressor objects.
+models/
