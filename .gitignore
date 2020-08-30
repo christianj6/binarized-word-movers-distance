@@ -134,3 +134,6 @@ res/*.txt
 
 # Saved compressor objects.
 models/
+
+# Development snippets.
+snippets/
