@@ -20,6 +20,7 @@ allows one to immmediately save the transformed vectors
 to a file.
 '''
 import tensorflow as tf
+import tensorflow_probability as tfp
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
@@ -102,12 +103,13 @@ class Encoder(tf.keras.layers.Layer):
             # Function for linear rescaling of values to within int8 range.
             mx, mn = 1, 0
             return lambda x: ((x - mn) / (mx - mn)) * (127 - -128) + -128
+            # return lambda x: ((x - np.amin(x)) / (np.amax(x) - np.amin(x))) * (127 - -128) + -128
 
         else:
             raise Exception('Compression dtype unsupported.')
 
 
-    def call(self, input_:np.array, transform:bool=False)->:'tf.Tensor'
+    def call(self, input_:np.array, transform:bool=False)->'tf.Tensor':
         '''
         Pass input through the layer.
         '''
@@ -171,8 +173,8 @@ class AutoEncoder(tf.keras.Model):
     Encoder-decoder architecture for producing
     compressed vector representations.
     '''
-    def __init__(self, reduced_dimensions:int,
-                    original_dimensions:int=300, compression:str)->None:
+    def __init__(self, reduced_dimensions:int=30,
+                    original_dimensions:int=300, compression:str='int8')->None:
         '''
         Initialize encoder and decoder layers.
 
@@ -209,6 +211,132 @@ class AutoEncoder(tf.keras.Model):
         return reconstructed
 
 
+@tf.function
+def get_rank(y_pred):
+    '''
+    Helper function for spearman correlation.
+
+    Parameters
+    ---------
+        y_pred : tf.Tensor
+            Predicted values
+
+    Returns
+    ---------
+        y_pred (ranked) : tf.Tensor
+            Sorted tensor.
+    '''
+    # Start ranking at 1 instead of zero.
+    rank = tf.argsort(tf.argsort(y_pred, axis=-1, direction="ASCENDING"), axis=-1) + 1
+    return y_pred
+
+
+@tf.function
+def sp_rank(x, y):
+    '''
+    Calculate the spearman rank correlation
+    between a pair of samples.
+
+    Parameters
+    ---------
+        x : tf.Tensor
+            Single sample.
+        y : tf.Tensor
+            Single sample.
+
+    Returns
+    ---------
+        score : tf.Tensor
+            Correlation score.
+    '''
+    cov = tfp.stats.covariance(x, y, sample_axis=0, event_axis=None)
+    sd_x = tfp.stats.stddev(x, sample_axis=0, keepdims=False, name=None)
+    sd_y = tfp.stats.stddev(y, sample_axis=0, keepdims=False, name=None)
+
+    # Return 1-score because loss function is for minimization.
+    return 1-cov/(sd_x*sd_y)
+
+
+@tf.function
+def spearman_correlation(y_true, y_pred):
+    '''
+    Calculate the spearman correlation score
+    between two tensors. Used for calculating a custom loss
+    function.
+
+    Parameters
+    ---------
+        y_true : tf.Tensor
+            Ground-truth matrix to which we wish
+            to determine the degree of correlation.
+        y_pred : tf.Tensor
+            Predicted values for comparison.
+
+    Returns
+    ---------
+        loss : tf.Tensor
+            Loss value as spearman correlation score
+            for the two input tensors.
+    '''
+    # Obtain a ranking of the predicted values.
+    y_pred_rank = tf.map_fn(lambda x: get_rank(x), y_pred, dtype=tf.float32)
+
+    #Spearman rank correlation between each pair of samples.
+    sp = tf.map_fn(lambda x: sp_rank(x[0],x[1]), (y_true, y_pred_rank), dtype=tf.float32)
+    #Reduce to a single value
+    loss = tf.reduce_mean(sp)
+    return loss
+
+
+@tf.function
+def pairwise_distance(feature: 'TensorLike', squared: bool = False):
+    '''
+    Compute pairwise distance matrix for an input tensor. Used
+    for spearman correlation loss function.
+
+    Parameters
+    ---------
+        feature : tf.Tensor
+            Input tensor.
+
+    Returns
+    ---------
+        pairwise_distances : tf.Tensor
+            2-D Tensor with pairwise distances.
+    '''
+    # Calculate the distances.
+    pairwise_distances_squared = tf.math.add(
+        tf.math.reduce_sum(tf.math.square(feature), axis=[1], keepdims=True),
+        tf.math.reduce_sum(
+            tf.math.square(tf.transpose(feature)), axis=[0], keepdims=True
+        ),
+    ) - 2.0 * tf.matmul(feature, tf.transpose(feature))
+    # Deal with numerical inaccuracies. Set small negatives to zero.
+    pairwise_distances_squared = tf.math.maximum(pairwise_distances_squared, 0.0)
+    # Get the mask where the zero distances are at.
+    error_mask = tf.math.less_equal(pairwise_distances_squared, 0.0)
+    # Optionally take the sqrt.
+    if squared:
+        pairwise_distances = pairwise_distances_squared
+    else:
+        pairwise_distances = tf.math.sqrt(
+            pairwise_distances_squared
+            + tf.cast(error_mask, dtype=tf.dtypes.float32) * 1e-16
+        )
+    # Undo conditionally adding 1e-16.
+    pairwise_distances = tf.math.multiply(
+        pairwise_distances,
+        tf.cast(tf.math.logical_not(error_mask), dtype=tf.dtypes.float32),
+    )
+    num_data = tf.shape(feature)[0]
+    # Explicitly set diagonals to zero.
+    mask_offdiagonals = tf.ones_like(pairwise_distances) - tf.linalg.diag(
+        tf.ones([num_data])
+    )
+    pairwise_distances = tf.math.multiply(pairwise_distances, mask_offdiagonals)
+    return pairwise_distances
+
+
 def reconstruction_loss(model, input_:'tf.Tensor')->'tf.Tensor':
     '''
     Mean squared error loss.
@@ -226,10 +354,32 @@ def reconstruction_loss(model, input_:'tf.Tensor')->'tf.Tensor':
             Loss evaluation as float cast
             as tf.Tensor.
     '''
-    return tf.reduce_mean(tf.square(tf.subtract(model(input_), input_)))
+    reconstruction_loss = tf.reduce_mean(tf.square(tf.subtract(model(input_), input_)))
+    spearman = spearman_correlation(pairwise_distance(input_), pairwise_distance(model(input_)))
+    # spearman = 1 - spearman
+
+    # TISSIER REGULARIZATION METHOD
 
 
-def train(loss, model:tf.Keras.Model,
+    # TODO: Experiment with adding loss because it is already subtracted.
+
+    for v in model.trainable_variables:
+        if v.name == 'auto_encoder/encoder/dense/kernel:0':
+            w = v
+            wt = tf.transpose(w)
+            i = tf.eye(w.numpy().shape[1]) # n*n identify matrix
+            norm = tf.norm(tf.linalg.matmul(wt, w) - i)
+
+            lambda_reg = 4
+            l_reg = tf.square(norm) / 2
+
+            # loss = reconstruction_loss + lambda_reg * l_reg + lambda_reg * spearman
+            loss = reconstruction_loss + l_reg + spearman
+
+            return loss
+
+
+def train(loss, model:'tf.Keras.Model',
                 optimizer:'tf.optimizers.Optimizer', input_:'tf.Tensor')->None:
     '''
     Train model by applying gradients to trainable parameters.
@@ -319,7 +469,7 @@ class Compressor():
 
         # Save a summary of training.
         plt.plot(losses)
-        plt.savefig('res\\loss.png')
+        plt.savefig('res\\images\\loss.png')
         # Store batch size for evaluation.
         self.batch_size = batch_size
 
@@ -427,17 +577,9 @@ class Compressor():
                 Save transformed vectors to file.
         '''
         # Path to export transformed vectors.
-        export_path = f'{path}_compressed_'
-        # Get length of file.
-        lines = 0
-        with open(path, 'r') as f:
-            for line in f:
-                lines +=1
-
-        lines = 150
-
+        export_path = f'{path}c'
         # Load all vectors and words from file.
-        vectors, words = load_vectors(path, lines, expected_dimensions, get_words=True)
+        vectors, words = load_vectors(path, expected_dimensions=expected_dimensions, get_words=True)
         # Get size of original vector before turning it into a tf dataset.
         size_original_vector = sys.getsizeof(vectors[0]) * 8
         # Cast vectors into tensorflow object. Do not shuffle
@@ -517,8 +659,9 @@ def save_vectors(path:str, words:list, vectors_batched:np.array)->None:
             f.write('\n')
 
 
-def load_vectors(path, size:int,
-                expected_dimensions:int, get_words=False)->list:
+def load_vectors(path, size:int=None,
+                expected_dimensions:int=300,
+                expected_dtype:str='float32', get_words=False)->list:
     '''
     Load word embedding vectors from file.
 
@@ -532,6 +675,8 @@ def load_vectors(path, size:int,
             Expected size of real-valued vectors. Needed
             to avoid creating a ragged array when there are
             errors in the original data.
+        expected_dtype : str
+            Expected data type of loaded vectors.
         words : bool
             Whether or not to return the original
             words with the vectors.
@@ -543,6 +688,13 @@ def load_vectors(path, size:int,
         words : list
             Words aligned with vectors.
     '''
+    # If no specific size provided, get length.
+    if size == None:
+        size = 0
+        with open(path, 'r') as f:
+            for line in f:
+                size +=1
+
     words = []
     vectors = []
     with open(path, 'r') as f:
@@ -551,7 +703,14 @@ def load_vectors(path, size:int,
             try:
                 line = f.readline().split()
                 # Get only vectors; first item is the word itself.
-                vector = np.asarray(line[1:], dtype='float32').reshape(1, -1)
+                if expected_dtype == 'bool_':
+                    vector = np.array(line[1:]).reshape(1, -1)
+                    vector = vector == 'True'
+                    vector = vector.astype('bool_')
+                elif expected_dtype == 'int8':
+                    vector = np.asarray(line[1:], dtype='int8').reshape(1, -1)
+                else:
+                    vector = np.asarray(line[1:], dtype='float32').reshape(1, -1)
                 # Get word.
                 word = line[0]
                 # Error handling to prevent ragged array.
