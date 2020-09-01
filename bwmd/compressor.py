@@ -25,6 +25,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from bitstring import BitArray
 # Silence warnings.
 tf.get_logger().setLevel('ERROR')
 
@@ -354,27 +355,28 @@ def reconstruction_loss(model, input_:'tf.Tensor')->'tf.Tensor':
             Loss evaluation as float cast
             as tf.Tensor.
     '''
+    # Compute standard reconstruction loss.
     reconstruction_loss = tf.reduce_mean(tf.square(tf.subtract(model(input_), input_)))
+    # Compute spearman correlation coefficient.
     spearman = spearman_correlation(pairwise_distance(input_), pairwise_distance(model(input_)))
-    # spearman = 1 - spearman
-
-    # TISSIER REGULARIZATION METHOD
-
-
-    # TODO: Experiment with adding loss because it is already subtracted.
+    # Convert spearman to similarity measure.
+    spearman = 1 - spearman
 
     for v in model.trainable_variables:
+        # Extract weights for encoder hidden layer.
         if v.name == 'auto_encoder/encoder/dense/kernel:0':
             w = v
             wt = tf.transpose(w)
-            i = tf.eye(w.numpy().shape[1]) # n*n identify matrix
+            # Get n*n identity matrix.
+            i = tf.eye(w.numpy().shape[1])
+            # Compute linear normalization.
             norm = tf.norm(tf.linalg.matmul(wt, w) - i)
-
+            # Regularization parameter lambda.
             lambda_reg = 4
+            # Compute regularization parameter l.
             l_reg = tf.square(norm) / 2
-
-            # loss = reconstruction_loss + lambda_reg * l_reg + lambda_reg * spearman
-            loss = reconstruction_loss + l_reg + spearman
+            # Compute final loss equation.
+            loss = reconstruction_loss + lambda_reg * (l_reg + spearman)
 
             return loss
 
@@ -587,13 +589,15 @@ class Compressor():
         vectors = self.prepare_vectors(vectors, self.batch_size, shuffle=False)
         # Iterate through batches, extracting only the encoded vectors.
         vectors_encoded = []
+        # Get compression for saving vectors.
+        compression = self.autoencoder.encoder.compression
         print('Encoding vectors ...')
         for step, batch in enumerate(vectors):
             code = self.autoencoder.encoder(batch, transform=True)
             vectors_encoded.append(code)
 
         if save:
-            save_vectors(export_path, words, vectors_encoded)
+            save_vectors(export_path, words, vectors_encoded, compression=compression)
 
         # Get size of encoded vector.
         size_encoded_vector = round(sys.getsizeof(vectors_encoded[0]) / self.batch_size * 8)
@@ -627,7 +631,7 @@ class Compressor():
         self.autoencoder.load_weights(path)
 
 
-def save_vectors(path:str, words:list, vectors_batched:np.array)->None:
+def save_vectors(path:str, words:list, vectors_batched:np.array, compression:str='int8')->None:
     '''
     Save compressed word vectors to file provided
     aligned corpus of words and their corresponding vectors.
@@ -654,9 +658,15 @@ def save_vectors(path:str, words:list, vectors_batched:np.array)->None:
     with open(path, 'w') as f:
         # Save vectors to new line with tab separating word and vector values.
         for word, vector in zip(words, vectors):
-            f.write(word + '\t')
-            f.write('\t'.join(str(num) for num in vector))
-            f.write('\n')
+            if compression == 'int8':
+                f.write(word + '\t')
+                f.write('\t'.join(str(num) for num in vector))
+                f.write('\n')
+            elif compression == 'bool_':
+                vector = vector.astype(int)
+                f.write(word + '\t')
+                f.write(''.join(str(num) for num in vector))
+                f.write('\n')
 
 
 def load_vectors(path, size:int=None,
@@ -702,17 +712,32 @@ def load_vectors(path, size:int=None,
         for i in tqdm(range(size)):
             try:
                 line = f.readline().split()
-                # Get only vectors; first item is the word itself.
+                # Get word.
+                word = line[0]
+
                 if expected_dtype == 'bool_':
-                    vector = np.array(line[1:]).reshape(1, -1)
-                    vector = vector == 'True'
-                    vector = vector.astype('bool_')
+                    bits = line[1]
+                    vector = BitArray(bin=bits)
+                    if len(bits) == expected_dimensions:
+                        vectors.append(vector)
+                        words.append(word)
+                        continue
+
+
+
+                # Get only vectors; first item is the word itself.
+                # if expected_dtype == 'bool_':
+                #     vector = np.array(line[1:]).reshape(1, -1)
+                #     vector = vector == 'True'
+                #     vector = vector.astype('bool_')
+
+
+
                 elif expected_dtype == 'int8':
                     vector = np.asarray(line[1:], dtype='int8').reshape(1, -1)
                 else:
                     vector = np.asarray(line[1:], dtype='float32').reshape(1, -1)
-                # Get word.
-                word = line[0]
+
                 # Error handling to prevent ragged array.
                 if vector.shape[1] == expected_dimensions:
                     vectors.append(vector)

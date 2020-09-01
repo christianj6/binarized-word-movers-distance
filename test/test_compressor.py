@@ -1,11 +1,9 @@
 import unittest
-from cwmd.compressor import Compressor, load_vectors
-from cwmd.distance import convert_vectors_to_dict
+from bwmd.compressor import Compressor, load_vectors
+from bwmd.distance import convert_vectors_to_dict
 import pandas as pd
 from scipy.spatial import distance
-# from sklearn.metrics import jaccard_score
 from scipy import stats
-import random
 
 
 REDUCED_DIMENSIONS = 256
@@ -48,6 +46,12 @@ class TestCase(unittest.TestCase):
         Test performance of compressed vectors on the
         semantic word similarity task cf. Tissier (2018).
         '''
+        def hamming_weight(a, b):
+            '''
+            Hamming weight for bitarray vectors.
+            '''
+            return (a^b).count(True)
+
         def score_vectors_on_similarity_task(datasets, vectors):
             '''
             Main function for scoring on similarity tasks.
@@ -62,7 +66,7 @@ class TestCase(unittest.TestCase):
                     testing both the original and compressed
                     versions
             '''
-            def calculate_word_similarity_score(data, vectors_dict):
+            def calculate_word_similarity_score(data, vectors_dict, dtype):
                 '''
                 Calculate the spearmen rank correlation
                 coefficient to evaluate the accuracy of vectors
@@ -77,30 +81,37 @@ class TestCase(unittest.TestCase):
                     vectors_dict : dict
                         Dictionary mapping words to numerical
                         vectors.
+                    dtype : str
+                        Data type of the vectors.
                 '''
                 human_similarities = []
-                hamming_similarities = []
+                hypothesized_similarities = []
                 for _, row in data.iterrows():
                     word1 = row['Word 1']
                     word2 = row['Word 2']
                     # Append the ground-truth similarities.
                     human_similarities.append(float(row['Similarity']))
-                    # Get hamming distance for binary vectors.
-                    hamming_distance = distance.hamming(vectors_dict[word1], vectors_dict[word2])
+                    if dtype == 'float32':
+                        # Cosine distance for float vevctors.
+                        hyp_distance = distance.cosine(vectors_dict[word1], vectors_dict[word2])
+                    elif dtype == 'bool_':
+                        # Bitarray hamming distance for bin vectors.
+                        hyp_distance = hamming_weight(vectors_dict[word1], vectors_dict[word2])
+
                     # Subtract from one to convert to similarity score.
-                    hamming_similarities.append(1 - hamming_distance)
+                    hypothesized_similarities.append(1 - hyp_distance)
 
                 # Calculate spearman score.
-                score,_ = stats.spearmanr(human_similarities, cosine_similarities)
+                score,_ = stats.spearmanr(human_similarities, hypothesized_similarities)
                 return score
 
             real_value = f'res\\{vectors}.txt'
             compressed = f'{real_value}c'
             # Evaluate both real and compressed vectors.
-            vectors_to_test = [real_value, compressed]
-            for vector_path in vectors_to_test:
+            vectors_to_test = [(real_value, 'float32'), (compressed, COMPRESSION)]
+            for vector_path, dtype in vectors_to_test:
                 # Load vectors from file.
-                vectors, words = load_vectors(vector_path, size=lines,
+                vectors, words = load_vectors(vector_path,
                                         get_words=True, expected_dimensions=REDUCED_DIMENSIONS,
                                         expected_dtype=COMPRESSION)
                 # Convert to dict for easier access.
@@ -108,12 +119,12 @@ class TestCase(unittest.TestCase):
                 for dataset in datasets:
                     # Load data as dataframe.
                     data = pd.read_csv(f'res\\datasets\\{dataset}.csv')
+                    # Print a summary of the testing method.
+                    print(f'Evaluating {vector_path} vectors of size {REDUCED_DIMENSIONS} and dtype {COMPRESSION}.')
                     # Calculate and print the score.
-                    score = calculate_word_similarity_score(data, vectors)
+                    score = calculate_word_similarity_score(data, vectors, dtype)
                     print('Spearman Correlation: ', str(round(score, 3)),
                                             f'({vector_path} + {dataset})')
-
-                # TODO: Save a summary for UX.
 
         datasets = ['simverb3500', 'wordsim353']
         for vectors in MODELS_TO_TEST:
