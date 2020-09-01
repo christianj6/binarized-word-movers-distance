@@ -139,7 +139,7 @@ class TestCase(unittest.TestCase):
                 vectors = convert_vectors_to_dict(vectors, words)
                 # Print a summary of the testing method etc.
                 print(f'Evaluating {vector_path} vectors of dtype {dtype}.')
-                bites = vectors['take'].nbytes if dtype == 'float32' else size
+                bites = vectors['take'].nbytes if dtype == 'float32' else size / 8
                 print(f"Size of a single vector: {bites * 8}")
                 for dataset in datasets:
                     # Load data as dataframe.
