@@ -4,6 +4,8 @@ from bwmd.distance import convert_vectors_to_dict
 import pandas as pd
 from scipy.spatial import distance
 from scipy import stats
+import sys
+import time
 
 
 REDUCED_DIMENSIONS = 256
@@ -46,6 +48,22 @@ class TestCase(unittest.TestCase):
         Test performance of compressed vectors on the
         semantic word similarity task cf. Tissier (2018).
         '''
+        def test_compressor_qualitative_nearest_neighbors(vectors, word='banana'):
+            '''
+            Test performance of compressed vectors on approximate
+            nearest neighbors query to qualitatively evaluate
+            the preservation of word-similarity information.
+
+            Parameters
+            ---------
+                word : str
+                    Word for which to run the ann query.
+            '''
+            # TODO: Annoy ann.
+            # TODO: Real-value and compressed vectors.
+            # TODO: Display the results.
+            pass
+
         def hamming_weight(a, b):
             '''
             Hamming weight for bitarray vectors.
@@ -108,36 +126,31 @@ class TestCase(unittest.TestCase):
             real_value = f'res\\{vectors}.txt'
             compressed = f'{real_value}c'
             # Evaluate both real and compressed vectors.
-            vectors_to_test = [(real_value, 'float32'), (compressed, COMPRESSION)]
-            for vector_path, dtype in vectors_to_test:
+            vectors_to_test = [(real_value, 'float32', 300), (compressed, COMPRESSION, REDUCED_DIMENSIONS)]
+            # vectors_to_test = [(compressed, COMPRESSION)]
+            for vector_path, dtype, size in vectors_to_test:
+                start = time.time()
                 # Load vectors from file.
                 vectors, words = load_vectors(vector_path,
-                                        get_words=True, expected_dimensions=REDUCED_DIMENSIONS,
-                                        expected_dtype=COMPRESSION)
+                                        get_words=True, expected_dimensions=size,
+                                        expected_dtype=dtype)
                 # Convert to dict for easier access.
                 vectors = convert_vectors_to_dict(vectors, words)
+                # Print a summary of the testing method etc.
+                print(f'Evaluating {vector_path} vectors of dim {size} and dtype {dtype}.')
+                print(f"Size of a single vector: {sys.getsizeof(vectors['take']) * 8}")
                 for dataset in datasets:
                     # Load data as dataframe.
                     data = pd.read_csv(f'res\\datasets\\{dataset}.csv')
-                    # Print a summary of the testing method.
-                    print(f'Evaluating {vector_path} vectors of size {REDUCED_DIMENSIONS} and dtype {COMPRESSION}.')
                     # Calculate and print the score.
                     score = calculate_word_similarity_score(data, vectors, dtype)
                     print('Spearman Correlation: ', str(round(score, 3)),
                                             f'({vector_path} + {dataset})')
 
+                end = time.time()
+                print(f'Time required for test: {round(start - end, 3)} sec.\n')
+
         datasets = ['simverb3500', 'wordsim353']
         for vectors in MODELS_TO_TEST:
             score_vectors_on_similarity_task(datasets, vectors)
-
-
-    def test_compressor_speed(self):
-        '''
-        Test to compare the speed of compressed
-        vectors against that of original vectors. Use the
-        knn task on the entire vector space.
-        '''
-        # TODO: Nested function so I can run with both.
-        # TODO: Load vectors into memory as np.arrays.
-        # TODO: Perform KNN on them per Werner.
-        pass
+            test_compressor_qualitative_nearest_neighbors(vectors)
