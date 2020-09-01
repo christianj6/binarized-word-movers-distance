@@ -11,6 +11,7 @@ import time
 REDUCED_DIMENSIONS = 256
 COMPRESSION = 'bool_'
 MODELS_TO_TEST = ['glove', 'fasttext', 'word2vec']
+assert COMPRESSION != 'int8', 'int8 compression currently unsupported.'
 
 class TestCase(unittest.TestCase):
     '''
@@ -137,8 +138,9 @@ class TestCase(unittest.TestCase):
                 # Convert to dict for easier access.
                 vectors = convert_vectors_to_dict(vectors, words)
                 # Print a summary of the testing method etc.
-                print(f'Evaluating {vector_path} vectors of dim {size} and dtype {dtype}.')
-                print(f"Size of a single vector: {sys.getsizeof(vectors['take']) * 8}")
+                print(f'Evaluating {vector_path} vectors of dtype {dtype}.')
+                bites = vectors['take'].nbytes if dtype == 'float32' else size
+                print(f"Size of a single vector: {bites * 8}")
                 for dataset in datasets:
                     # Load data as dataframe.
                     data = pd.read_csv(f'res\\datasets\\{dataset}.csv')
@@ -148,7 +150,7 @@ class TestCase(unittest.TestCase):
                                             f'({vector_path} + {dataset})')
 
                 end = time.time()
-                print(f'Time required for test: {round(start - end, 3)} sec.\n')
+                print(f'Time required for test: {round(end - start, 3)} sec.\n')
 
         datasets = ['simverb3500', 'wordsim353']
         for vectors in MODELS_TO_TEST:
