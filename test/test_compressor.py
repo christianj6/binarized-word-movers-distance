@@ -6,6 +6,8 @@ from scipy.spatial import distance
 from scipy import stats
 import sys
 import time
+from tqdm import tqdm
+import annoy
 
 
 REDUCED_DIMENSIONS = 256
@@ -49,7 +51,7 @@ class TestCase(unittest.TestCase):
         Test performance of compressed vectors on the
         semantic word similarity task cf. Tissier (2018).
         '''
-        def test_compressor_qualitative_nearest_neighbors(vectors, word='banana'):
+        def test_compressor_qualitative_nearest_neighbors(vectors, size, word='banana'):
             '''
             Test performance of compressed vectors on approximate
             nearest neighbors query to qualitatively evaluate
@@ -60,10 +62,25 @@ class TestCase(unittest.TestCase):
                 word : str
                     Word for which to run the ann query.
             '''
-            # TODO: Annoy ann.
-            # TODO: Real-value and compressed vectors.
-            # TODO: Display the results.
-            pass
+            # Create embedding space.
+            # Add all tokens from the dataset.
+            index_to_token = {}
+            token_to_index = {}
+            if size == 300:
+                metric = 'angular'
+            else:
+                metric = 'hamming'
+            a = annoy.AnnoyIndex(size, metric=metric)
+            for i, (token, embedding) in tqdm(enumerate(vectors.items())):
+                if size != 300:
+                    embedding = list(map(lambda x: int(x), list(embedding.bin)))
+                a.add_item(i, embedding)
+                index_to_token[i] = token
+                token_to_index[token] = i
+
+            a.build(n_trees=100)
+            ret = a.get_nns_by_item(token_to_index[word], n=10)
+            print([index_to_token[item] for item in ret])
 
         def hamming_weight(a, b):
             '''
@@ -128,7 +145,7 @@ class TestCase(unittest.TestCase):
             compressed = f'{real_value}c'
             # Evaluate both real and compressed vectors.
             vectors_to_test = [(real_value, 'float32', 300), (compressed, COMPRESSION, REDUCED_DIMENSIONS)]
-            # vectors_to_test = [(compressed, COMPRESSION)]
+            # vectors_to_test = [(compressed, COMPRESSION, REDUCED_DIMENSIONS)]
             for vector_path, dtype, size in vectors_to_test:
                 start = time.time()
                 # Load vectors from file.
@@ -151,8 +168,8 @@ class TestCase(unittest.TestCase):
 
                 end = time.time()
                 print(f'Time required for test: {round(end - start, 3)} sec.\n')
+                test_compressor_qualitative_nearest_neighbors(vectors, size)
 
         datasets = ['simverb3500', 'wordsim353']
         for vectors in MODELS_TO_TEST:
             score_vectors_on_similarity_task(datasets, vectors)
-            test_compressor_qualitative_nearest_neighbors(vectors)

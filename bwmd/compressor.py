@@ -721,7 +721,8 @@ def load_vectors(path, size:int=None,
                     if len(bits) == expected_dimensions:
                         vectors.append(vector)
                         words.append(word)
-                        continue
+
+                    continue
 
 
 
