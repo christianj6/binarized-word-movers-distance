@@ -714,26 +714,13 @@ def load_vectors(path, size:int=None,
                 line = f.readline().split()
                 # Get word.
                 word = line[0]
-
                 if expected_dtype == 'bool_':
                     bits = line[1]
                     vector = BitArray(bin=bits)
                     if len(bits) == expected_dimensions:
                         vectors.append(vector)
                         words.append(word)
-
                     continue
-
-
-
-                # Get only vectors; first item is the word itself.
-                # if expected_dtype == 'bool_':
-                #     vector = np.array(line[1:]).reshape(1, -1)
-                #     vector = vector == 'True'
-                #     vector = vector.astype('bool_')
-
-
-
                 elif expected_dtype == 'int8':
                     vector = np.asarray(line[1:], dtype='int8').reshape(1, -1)
                 else:

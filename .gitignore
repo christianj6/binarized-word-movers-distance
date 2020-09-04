@@ -137,3 +137,6 @@ models/
 
 # Development snippets.
 snippets/
+
+# Output images.
+images/

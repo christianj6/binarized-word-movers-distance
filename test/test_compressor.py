@@ -10,9 +10,9 @@ from tqdm import tqdm
 import annoy
 
 
-REDUCED_DIMENSIONS = 256
+REDUCED_DIMENSIONS = 512
 COMPRESSION = 'bool_'
-MODELS_TO_TEST = ['glove', 'fasttext', 'word2vec']
+MODELS_TO_TEST = ['fasttext', 'glove', 'word2vec']
 assert COMPRESSION != 'int8', 'int8 compression currently unsupported.'
 
 class TestCase(unittest.TestCase):
@@ -51,7 +51,7 @@ class TestCase(unittest.TestCase):
         Test performance of compressed vectors on the
         semantic word similarity task cf. Tissier (2018).
         '''
-        def test_compressor_qualitative_nearest_neighbors(vectors, size, word='banana'):
+        def test_compressor_qualitative_nearest_neighbors(vectors, size, word='car'):
             '''
             Test performance of compressed vectors on approximate
             nearest neighbors query to qualitatively evaluate
@@ -67,18 +67,27 @@ class TestCase(unittest.TestCase):
             index_to_token = {}
             token_to_index = {}
             if size == 300:
+                # Use cosine distance if real-valued vectors.
                 metric = 'angular'
             else:
+                # Use hamming distance if binary vectors.
                 metric = 'hamming'
             a = annoy.AnnoyIndex(size, metric=metric)
             for i, (token, embedding) in tqdm(enumerate(vectors.items())):
                 if size != 300:
+                    # Map the string values to integers.
                     embedding = list(map(lambda x: int(x), list(embedding.bin)))
+                else:
+                    # Deconstruct the np array.
+                    embedding = embedding[0].tolist()
                 a.add_item(i, embedding)
+                # Add item and keep track of the mapping.
                 index_to_token[i] = token
                 token_to_index[token] = i
 
+            # Build embedding space.
             a.build(n_trees=100)
+            # Query with test word.
             ret = a.get_nns_by_item(token_to_index[word], n=10)
             print([index_to_token[item] for item in ret])
 
