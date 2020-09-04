@@ -139,4 +139,4 @@ models/
 snippets/
 
 # Output images.
-images/
+res/images/*.png
