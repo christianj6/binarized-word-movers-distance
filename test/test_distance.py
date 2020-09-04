@@ -29,4 +29,5 @@ class TestCase(unittest.TestCase):
         # TODO: Initialize BWMD.
         # TODO: Compute pairwise distances for a
         # list of texts.
+        # TODO: Evaluate the cache-removal policy.
         pass

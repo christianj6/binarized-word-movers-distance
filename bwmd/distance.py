@@ -32,6 +32,7 @@ def build_knn_lookup_tables(vectors, save=True):
         '''
         # TODO: Copy Saurabh's implementation with hamming distance.
         # TODO: Returns dict eg cluster: [word1, word2, ... wordn]
+        # TODO: ensure randomness reproducibility
         pass
 
     def build_lookup_table():
@@ -60,20 +61,54 @@ class BWMD():
     def __init__(self):
         '''
         '''
-        # TODO: self.tables
-        # TODO: self.cache
+        # TODO: self.tables --> load from file into a mapping of word to table
+        # TODO: self.cache --> load from files into a dict of table_id
         pass
 
 
-    def similarity():
+    def similarity(a, b, distance=False):
         '''
         '''
+        # TODO: Preprocess??
         # TODO: Computes the similarity between two documents.
         # TODO: Nested functions to handle the other computations.
         # TODO: Appropriate functions for syntactic dependency info.
         # TODO: Error handling or clever strategy if trying to
         # compute a distance which is not represented within a
         # lookup table.
+        # TODO: if distance return 1 - similarity
+        # TODO: dict lookup table for dependency distances
+        # TODO: Convert words to numbers for faster lookup??
+
+        # TODO: Sum both directions for bidirectional cf Hamann
+        # TODO: Normalize the summation components by document distance d?
+
+        wmd = 0
+        # TODO: Get a list of dependencies for a and b, respectively.
+        a_dep, b_dep = get_dependencies(a), get_dependencies(b)
+        dependency_distances = dict()
+        for i, word_a in enumerate(a):
+            distances = []
+            for word_b in b:
+                try:
+                    distance = self.cache[self.tables[word_a]][word_a][word_b]
+                except KeyError:
+                    # TODO: Check if in different tables.
+                    if self.tables[word_a] == self.tables[word_b]:
+                        # TODO: Load into the cache and get the distance.
+                    else:
+                        # TODO: Use a default value.
+
+                distances.append(distance)
+
+            distance = min(distances)
+            dependency_distance = dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+
+            wmd += distance * dependency_distance
+
+
+
+
         pass
 
 
