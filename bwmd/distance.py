@@ -2,6 +2,8 @@ import math
 import random
 from tqdm import tqdm
 import dill
+from bwmd.compressor import load_vectors
+from scipy.spatial import distance
 
 
 # Set random seed.
@@ -183,8 +185,9 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
         for word_1 in words:
             table[word1] = {}
             for word_2 in words:
-                # TODO: Get cosine distance with real-value vectors.
-                distance = None
+                # Get cosine distance with real-value vectors.
+                distance = distance.cosine(real_value_vectors[word_1],
+                                    real_value_vectors[word_2])
                 table[word_1][word2] = distance
 
         return table
@@ -194,17 +197,19 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
     k = round(math.sqrt(len(vectors) / I))
     # Perform k-means clustering on the data.
     ids, cache = kmeans(k)
-
-    exit()
     # Build lookup tables based on ids.
-    # TODO: Load real-valued vectors.
+    # Load real-valued vectors.
+    real_value_vectors, words = load_vectors(VECTORS,
+                            expected_dimensions=300,
+                                expected_dtype='float32', get_words=True)
+    real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
     tables = []
     for cluster in ids.items():
         table = build_lookup_table(cluster, real_value_vectors)
         tables.append(table)
         if save:
             # TODO: Fix file names across the repo.
-            with open(f'res\\tables\\{path.split('.')[0]}\\{cluster}', 'wb') as f:
+            with open(f"res\\tables\\{path.split('.')[0]}\\{cluster}", 'wb') as f:
                 dill.dump(table, f)
 
     return tables

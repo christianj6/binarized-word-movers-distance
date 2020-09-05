@@ -21,7 +21,7 @@ class TestCase(unittest.TestCase):
         combination with intelligent caching policy.
         '''
         vectors, words = load_vectors(VECTORS,
-                            size=5000,               # only for prelim tests
+                            size=200_000,               # only for prelim tests
                             expected_dimensions=DIM,
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
