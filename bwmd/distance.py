@@ -1,3 +1,32 @@
+import math
+import random
+from tqdm import tqdm
+import dill
+
+
+# Set random seed.
+random.seed(42)
+
+def hamming(a, b):
+    '''
+    Hamming distance for bitarray vectors.
+
+    Parameters
+    ---------
+        a : BitArray
+            Vector a.
+        b : BitArray.
+            Vector b.
+
+    Returns
+    ---------
+        distance : int
+            Hamming distance, ie
+            number of overlapping
+            segments.
+    '''
+    return (a^b).count(True)
+
 
 def convert_vectors_to_dict(vectors, words):
     '''
@@ -24,35 +53,161 @@ def convert_vectors_to_dict(vectors, words):
     return vectors_dict
 
 
-def build_knn_lookup_tables(vectors, save=True):
+def build_kmeans_lookup_tables(vectors, I, path, save=True):
     '''
+    Build a set of lookup tables by first clustering
+    all embeddings and then computing pairwise intra-cluster
+    distances. The computed tables can then be saved for
+    use in the BWMD distance calculations.
+
+    Parameters
+    ---------
+        vectors : dict
+            Mapping of words to vectors.
+        I : int
+            Maximum number of iterations cf. Werner (2019)
+        save : bool
+            If to save computed tables to file.
+
+    Returns
+    ---------
+        tables : list
+            List of lookup tables. Each table corresponds
+            to a single computed cluster.
     '''
-    def knn():
+    def kmeans(k):
         '''
-        '''
-        # TODO: Copy Saurabh's implementation with hamming distance.
-        # TODO: Returns dict eg cluster: [word1, word2, ... wordn]
-        # TODO: ensure randomness reproducibility
-        pass
+        K-means cluster algorithm for binary vectors. Uses
+        hamming distance instead of Euclidean distance.
 
-    def build_lookup_table():
-        '''
-        '''
-        # TODO: Accepts dict entry for cluster, computes
-        # pairwise cosine distances using real-valued vectors.
-        pass
+        Parameters
+        ---------
+            k : int
+                Number of expected clusters.
 
-    # TODO: Load vectors to dict.
-    # TODO: Create dict for mapping words to cluster ids.
-    # TODO: Perform knn by iterating through dict.values(),
-    # updating the cluster id dict.
-    # TODO: k = sqrt(n / I); input I and it dynamically determines k.
-    # TODO: Iterate through the clusters and make lookup tables.
-    # TODO: if save, output to appropriate directory
-    # a dill-pickled dictionary for each cluster which stores the
-    # distances in pairwise format, eg: word1[word2]: cosine_distance
+        Returns
+        ---------
+            ids : dict
+                Mapping of determined cluster to words. Words
+                can then be mapped back to their embeddings
+                using the input vector dict.
+            cache : dict
+                Precomputed values.
+        '''
+        # Create a cache of distances to speed up computations.
+        cache = {}
+        # Initialize random centroids.
+        centroids = random.sample(range(len(vectors)), k)
+        # Store all words ids in a dictionar for updating centroids.
+        word2id = {}
+        # Iterate through the dictionary values to cluster.
+        for i in tqdm(range(I)):
+            # Output mapping cluster_id:[words] for each iteration.
+            output = {centroid: [] for centroid in centroids}
+            vector_space = list(vectors.items())
+            for j, (word, vector) in enumerate(vector_space):
+                if i == 0:
+                    # Store word indices for remapping centroids.
+                    word2id[word] = j
+                distances = []
+                for centroid in centroids:
+                    try:
+                        # Attempt to lookup in cache.
+                        distance = cache[word][vector_space[centroid][0]]
+                    except KeyError:
+                        # Otherwise compute hamming distance.
+                        distance = hamming(vector, vector_space[centroid][1])
+                        # Update the cache.
+                        cache[word] = {}
+                        cache[word][vector_space[centroid][0]] = distance
 
-    pass
+                    distances.append(distance)
+
+                cluster = centroids[distances.index(min(distances))]
+                # Update outputs.
+                output[cluster].append(word)
+
+            # Determine mean point within each cluster.
+            new_output = {}
+            for cluster, words in output.items():
+                word_distances = []
+                for word1 in words:
+                    distances = []
+                    for word2 in words:
+                        try:
+                            # Try use cache distance.
+                            distance = cache[word1][word2]
+                        except KeyError:
+                            # Otherwise compute distance.
+                            distance = hamming(vectors[word1], vectors[word2])
+                            # Update cache.
+                            cache[word1][word2] = distance
+
+                        distances.append(distance)
+
+                    word_distances.append(sum(distances) / len(distances))
+
+                mean = words[word_distances.index(min(word_distances))]
+                # Update position of centroid
+                centroid = word2id[mean]
+                # Store new output info.
+                new_output[centroid] = words
+
+            output = new_output
+            # Update the centroids.
+            centroids = list(output.keys())
+
+        for centroid, words in output.items():
+            print('Cluster ', str(centroid), ': ', str(len(words)), ' points')
+
+        return output, cache
+
+    def build_lookup_table(cluster, real_value_vectors):
+        '''
+        Constructs a hamming distance lookup table for a given
+        dict entry produced by the kmeans method.
+
+        Parameters
+        ---------
+            cluster : tuple
+                Cluster id, [list of words]
+
+        Returns
+        ---------
+            table : dict
+                Word-to-word mapping with hamming
+                distances.
+        '''
+        table = {}
+        idx, words, = cluster
+        for word_1 in words:
+            table[word1] = {}
+            for word_2 in words:
+                # TODO: Get cosine distance with real-value vectors.
+                distance = None
+                table[word_1][word2] = distance
+
+        return table
+
+    # Determine optimal k-value based on length of dataset and
+    # maximum number of iterations cf. Werner et al. (2019).
+    k = round(math.sqrt(len(vectors) / I))
+    # Perform k-means clustering on the data.
+    ids, cache = kmeans(k)
+
+    exit()
+    # Build lookup tables based on ids.
+    # TODO: Load real-valued vectors.
+    tables = []
+    for cluster in ids.items():
+        table = build_lookup_table(cluster, real_value_vectors)
+        tables.append(table)
+        if save:
+            # TODO: Fix file names across the repo.
+            with open(f'res\\tables\\{path.split('.')[0]}\\{cluster}', 'wb') as f:
+                dill.dump(table, f)
+
+    return tables
 
 
 class BWMD():
@@ -95,9 +250,11 @@ class BWMD():
                 except KeyError:
                     # TODO: Check if in different tables.
                     if self.tables[word_a] == self.tables[word_b]:
+                        pass
                         # TODO: Load into the cache and get the distance.
                     else:
                         # TODO: Use a default value.
+                        pass
 
                 distances.append(distance)
 
