@@ -96,14 +96,25 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
             cache : dict
                 Precomputed values.
         '''
+
+        ###
+        # TODO: Two means tree initialization.
+        # TODO: Build annoy embedding space.
+
         # Create a cache of distances to speed up computations.
         cache = {}
         # Initialize random centroids.
         centroids = random.sample(range(len(vectors)), k)
         # Store all words ids in a dictionar for updating centroids.
         word2id = {}
+
+        ###
+
         # Iterate through the dictionary values to cluster.
-        for i in tqdm(range(I)):
+        for i in tqdm(range(I - 1)):
+
+            # TODO: Use annoy ann to limit compared clusters.
+
             # Output mapping cluster_id:[words] for each iteration.
             output = {centroid: [] for centroid in centroids}
             vector_space = list(vectors.items())

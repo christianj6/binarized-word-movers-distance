@@ -26,7 +26,6 @@ class TestCase(unittest.TestCase):
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
         tables = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS)
-        # TODO: Validate that clusters are of equivalent sizes.
 
 
     def test_bwmd_similarity(self):
