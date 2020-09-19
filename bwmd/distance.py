@@ -96,15 +96,69 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
             cache : dict
                 Precomputed values.
         '''
+        # Two means tree partition initialization.
+        cache = {}
+        vector_space = list(vectors.items())
+        partitions = [vector_space]
+        print('Initializing kmeans with two-means tree ...')
+        while len(partitions) < k:
+            centroid_words = []
+            new_partitions = []
+            for partition in partitions:
+                new_partition = []
+                centroids = random.sample(range(len(partition)), 2)
+                output = {centroid: [] for centroid in centroids}
+                # Assign all words to a partition.
+                for j, (word, vector) in enumerate(partition):
+                    distances = []
+                    for centroid in centroids:
+                        try:
+                            distance = cache[word][vector_space[centroid][0]]
+                        except KeyError:
+                            distance = hamming(vector, partition[centroid][1])
+                            cache[word] = {}
+                            cache[word][vector_space[centroid][0]] = distance
 
-        ###
-        # TODO: Two means tree initialization.
+                        distances.append(distance)
+
+                    cluster = centroids[distances.index(min(distances))]
+                    output[cluster].append(word)
+
+                # Adjust clusters to equal size.
+                len_cluster_1 = len(list(output.items())[0][1])
+                len_cluster_2 = len(list(output.items())[1][1])
+                larger_cluster = 0 if len_cluster_1 > len_cluster_2 else 1
+                both_clusters = [cluster_id for cluster_id, words in list(output.items()).copy()]
+                larger_cluster = both_clusters.pop(larger_cluster)
+                smaller_cluster = both_clusters[0]
+                sample_size = abs(len_cluster_1 - len_cluster_2)
+                sample_size = round(sample_size / 2)
+                for word in random.sample(output[larger_cluster], sample_size):
+                    # Logically we can just swap assignments because only two clusters.
+                    output[larger_cluster].remove(word)
+                    output[smaller_cluster].append(word)
+
+                new_partition.append([(word, vectors[word]) for word in output[larger_cluster]])
+                new_partition.append([(word, vectors[word]) for word in output[smaller_cluster]])
+                centroid_words.append(partition[larger_cluster][0])
+                centroid_words.append(partition[smaller_cluster][0])
+                new_partitions += new_partition
+
+            # Update partitions.
+            partitions = new_partitions
+
+        # List the centroids as initialization for kmeans clustering.
+        centroids = [list(vectors.keys()).index(word) for word in centroid_words]
+
+###########################
+
         # TODO: Build annoy embedding space.
 
         # Create a cache of distances to speed up computations.
-        cache = {}
+        # cache = {}
         # Initialize random centroids.
-        centroids = random.sample(range(len(vectors)), k)
+        # We already have the centroids from two means tree.
+        # centroids = random.sample(range(len(vectors)), k)
         # Store all words ids in a dictionar for updating centroids.
         word2id = {}
 
