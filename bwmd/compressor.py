@@ -698,6 +698,9 @@ def load_vectors(path, size:int=None,
         words : list
             Words aligned with vectors.
     '''
+
+    # from gmpy2 import pack
+
     # If no specific size provided, get length.
     if size == None:
         size = 0
@@ -716,7 +719,10 @@ def load_vectors(path, size:int=None,
                 word = line[0]
                 if expected_dtype == 'bool_':
                     bits = line[1]
-                    vector = BitArray(bin=bits)
+                    # vector = BitArray(bin=bits)
+                    vector = list(bits)
+                    # vector = pack(vector,1)
+                    vector = np.asarray(vector, dtype='int8').reshape(1, -1)
                     if len(bits) == expected_dimensions:
                         vectors.append(vector)
                         words.append(word)

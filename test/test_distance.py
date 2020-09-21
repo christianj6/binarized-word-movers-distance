@@ -7,6 +7,10 @@ VECTORS = 'res\\glove-512.txtc'
 DIM = 512
 COMPRESSION = 'bool_'
 
+# VECTORS = 'res\\glove.txt'
+# DIM = 300
+# COMPRESSION = 'float32'
+
 class TestCase(unittest.TestCase):
     '''
     Test cases for distance module
@@ -25,7 +29,7 @@ class TestCase(unittest.TestCase):
                             expected_dimensions=DIM,
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
-        tables = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS)
+        tables = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
 
 
     def test_bwmd_similarity(self):

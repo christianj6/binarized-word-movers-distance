@@ -3,7 +3,8 @@ import random
 from tqdm import tqdm
 import dill
 from bwmd.compressor import load_vectors
-from scipy.spatial import distance
+from scipy.spatial import distance as distance_scipy
+import annoy
 
 
 # Set random seed.
@@ -55,7 +56,7 @@ def convert_vectors_to_dict(vectors, words):
     return vectors_dict
 
 
-def build_kmeans_lookup_tables(vectors, I, path, save=True):
+def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
     '''
     Build a set of lookup tables by first clustering
     all embeddings and then computing pairwise intra-cluster
@@ -70,6 +71,8 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
             Maximum number of iterations cf. Werner (2019)
         save : bool
             If to save computed tables to file.
+        vector_size : int
+            Dimensions of each vector.
 
     Returns
     ---------
@@ -79,7 +82,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
     '''
     def kmeans(k):
         '''
-        K-means cluster algorithm for binary vectors. Uses
+        Bisecting K-means cluster algorithm for binary vectors. Uses
         hamming distance instead of Euclidean distance.
 
         Parameters
@@ -96,14 +99,20 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
             cache : dict
                 Precomputed values.
         '''
-        # Two means tree partition initialization.
+        import time
+        # from gmpy2 import hamdist
+        start = time.time()
+        # Create a cache of distances to remove repeated calculations.
         cache = {}
         vector_space = list(vectors.items())
+        # Store partitions in separate object which is updated.
         partitions = [vector_space]
-        print('Initializing kmeans with two-means tree ...')
+        print('Clustering with bisecting kmeans ...')
         while len(partitions) < k:
             centroid_words = []
+            # Empty list to store new partitioning at each iteration.
             new_partitions = []
+            # At each iteration, split each of the partitions.
             for partition in partitions:
                 new_partition = []
                 centroids = random.sample(range(len(partition)), 2)
@@ -113,14 +122,23 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
                     distances = []
                     for centroid in centroids:
                         try:
+                            # First try to find distance in cache.
                             distance = cache[word][vector_space[centroid][0]]
                         except KeyError:
-                            distance = hamming(vector, partition[centroid][1])
+                            # Otherwise compute and store in cache.
+                            if vector_size == 300:
+                                # distance = distance_scipy.cosine(vector, partition[centroid][1])
+                                distance = np.count_nonzero(vector != partition[centroid][1])
+                                # distance = hamdist(vector, partition[centroid][1])
+                            else:
+                                # distance = hamming(vector, partition[centroid][1])
+                                distance = distance_scipy.hamming(vector, partition[centroid][1])
                             cache[word] = {}
                             cache[word][vector_space[centroid][0]] = distance
 
                         distances.append(distance)
 
+                    # Closest centroid is the assignment for the token.
                     cluster = centroids[distances.index(min(distances))]
                     output[cluster].append(word)
 
@@ -149,35 +167,87 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
 
         # List the centroids as initialization for kmeans clustering.
         centroids = [list(vectors.keys()).index(word) for word in centroid_words]
+        # Create a reverse mapping of words to centroids for the ANN speedup.
+        token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
+                                for token, vector in partition}
 
-###########################
+        # for centroid, tokens in zip(centroid_words, partitions):
+        #     print(centroid.upper())
+        #     print([token for token, vector in tokens])
+        #     print('\n\n')
 
-        # TODO: Build annoy embedding space.
+        output = zip(centroids, [[word for word, vector in partition] for partition in partitions])
 
-        # Create a cache of distances to speed up computations.
-        # cache = {}
-        # Initialize random centroids.
-        # We already have the centroids from two means tree.
-        # centroids = random.sample(range(len(vectors)), k)
-        # Store all words ids in a dictionar for updating centroids.
-        word2id = {}
+        end = time.time()
+        print(end - start)
+        exit()
 
-        ###
+
+        # Build annoy embedding space.
+        print('Building approximate nearest-neighbor space ...')
+        # Add all tokens from the dataset.
+        index_to_token = {}
+        token_to_index = {}
+        # Add all tokens from the dataset.
+        index_to_token = {}
+        token_to_index = {}
+        if vector_size == 300:
+            # Use cosine distance if real-valued vectors.
+            metric = 'angular'
+        else:
+            # Use hamming distance if binary vectors.
+            metric = 'hamming'
+        a = annoy.AnnoyIndex(vector_size, metric=metric)
+        for i, (token, embedding) in tqdm(enumerate(vectors.items())):
+            if vector_size != 300:
+                # Map the string values to integers.
+                embedding = list(map(lambda x: int(x), list(embedding.bin)))
+            else:
+                # Deconstruct the np array.
+                embedding = embedding[0].tolist()
+            a.add_item(i, embedding)
+            # Add item and keep track of the mapping.
+            index_to_token[i] = token
+            token_to_index[token] = i
+
+        # Build embedding space.
+        a.build(n_trees=100)
+
+        # TODO: Build dictionary of all nns for faster lookup?
+        # TODO: Determine the optimal n value for the ann search.
 
         # Iterate through the dictionary values to cluster.
         for i in tqdm(range(I - 1)):
-
-            # TODO: Use annoy ann to limit compared clusters.
-
             # Output mapping cluster_id:[words] for each iteration.
             output = {centroid: [] for centroid in centroids}
             vector_space = list(vectors.items())
-            for j, (word, vector) in enumerate(vector_space):
-                if i == 0:
-                    # Store word indices for remapping centroids.
-                    word2id[word] = j
+            for j, (word, vector) in tqdm(enumerate(vector_space)):
+                # Compare only relevant centroids, per Cheng et al. (2017),
+                # ie, only centroids under regime of word nearest-neighbors.
+                nn = a.get_nns_by_item(j, n=50)
+                # Remove nn which are centroids themselves.
+                nn = [i for i in nn if i not in list(output.keys())]
+                relevant_centroids = set()
+                for word in [index_to_token[item] for item in nn]:
+                    try:
+                        relevant_centroids.add(token_to_centroid[word])
+                    except KeyError:
+                        pass
+
+                # relevant_centroids = set([token_to_centroid[word] for word in
+                                                        # [index_to_token[item] for item in nn]])
                 distances = []
-                for centroid in centroids:
+
+                # print(relevant_centroids)
+                # exit()
+
+
+        #         # for centroid in centroids:
+                for centroid in relevant_centroids:
+
+
+
+
                     try:
                         # Attempt to lookup in cache.
                         distance = cache[word][vector_space[centroid][0]]
@@ -196,7 +266,8 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
 
             # Determine mean point within each cluster.
             new_output = {}
-            for cluster, words in output.items():
+            for cluster, words in tqdm(output.items()):
+                # print(len(words))
                 word_distances = []
                 for word1 in words:
                     distances = []
@@ -214,18 +285,29 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
 
                     word_distances.append(sum(distances) / len(distances))
 
-                mean = words[word_distances.index(min(word_distances))]
-                # Update position of centroid
-                centroid = word2id[mean]
-                # Store new output info.
-                new_output[centroid] = words
+                # print(word_distances)
+                try:
+                    mean = words[word_distances.index(min(word_distances))]
+                    # Update position of centroid
+                    centroid = token_to_index[mean]
+                    # Store new output info.
+                    new_output[centroid] = words
+                except ValueError:
+                    # Skip in cases where a cluster has become empty.
+                    new_output[cluster] = words
 
             output = new_output
             # Update the centroids.
             centroids = list(output.keys())
 
+            # Update token_to_centroid.
+            token_to_centroid = {token: centroid for centroid, words in
+                                    list(output.items()) for token in words}
+
         for centroid, words in output.items():
             print('Cluster ', str(centroid), ': ', str(len(words)), ' points')
+            print(words)
+            print('\n\n\n')
 
         return output, cache
 
@@ -251,7 +333,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True):
             table[word1] = {}
             for word_2 in words:
                 # Get cosine distance with real-value vectors.
-                distance = distance.cosine(real_value_vectors[word_1],
+                distance = distance_scipy.cosine(real_value_vectors[word_1],
                                     real_value_vectors[word_2])
                 table[word_1][word2] = distance
 
