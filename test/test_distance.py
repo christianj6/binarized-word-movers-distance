@@ -71,7 +71,7 @@ def compute_all_lookup_tables():
         vector = f"res\\{vector}.txtc"
         vectors, words = load_vectors(
                 vector,
-                expected_dimensions=dim,
+                expected_dimensions=int(dim),
                 expected_dtype=COMPRESSION,
                 get_words=True
             )

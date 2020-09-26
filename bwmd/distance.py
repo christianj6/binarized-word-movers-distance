@@ -358,9 +358,8 @@ class BWMD():
                     # Get value from cache. Cache handles itself.
                     distance = self.cache.get(word_a, word_b)
                 except KeyError:
-                    else:
-                        # TODO: Use a default value.
-                        pass
+                    # TODO: Use a default value.
+                    pass
 
                 distances.append(distance)
 
