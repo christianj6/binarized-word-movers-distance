@@ -7,10 +7,6 @@ VECTORS = 'res\\glove-512.txtc'
 DIM = 512
 COMPRESSION = 'bool_'
 
-# VECTORS = 'res\\glove.txt'
-# DIM = 300
-# COMPRESSION = 'float32'
-
 class TestCase(unittest.TestCase):
     '''
     Test cases for distance module
@@ -25,7 +21,7 @@ class TestCase(unittest.TestCase):
         combination with intelligent caching policy.
         '''
         vectors, words = load_vectors(VECTORS,
-                            size=200_000,               # only for prelim tests
+                            size=10_000,
                             expected_dimensions=DIM,
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
@@ -34,9 +30,14 @@ class TestCase(unittest.TestCase):
 
     def test_bwmd_similarity(self):
         '''
+        Test for computing the BWMD similarity score
+        for a small set of test sentences.
         '''
         # TODO: Initialize BWMD.
         # TODO: Compute distance between two sample texts.
+        text_a = ['Obama speaks to the media in Illinois.']
+        text_b = ['The President greets the press in Chicago.']
+        # TODO: Preprocess the texts.
         pass
 
 
@@ -48,3 +49,35 @@ class TestCase(unittest.TestCase):
         # list of texts.
         # TODO: Evaluate the cache-removal policy.
         pass
+
+
+def compute_all_lookup_tables():
+    '''
+    Automation for computing all the lookup tables
+    for all vector models.
+    '''
+    vectors_to_compute = [
+        'glove-256',
+        'glove-512',
+        'fasttext-256',
+        'fasttext-512',
+        'word2vec-256',
+        'word2vec-512'
+    ]
+    for vector in vectors_to_compute:
+        dim = vector[-3:]
+        vector = f"res\\{vector}.txtc"
+        vectors, words = load_vectors(
+                vector,
+                expected_dimensions=dim,
+                expected_dtype=COMPRESSION,
+                get_words=True
+            )
+        vectors = convert_vectors_to_dict(vectors, words)
+        tables = build_kmeans_lookup_tables(
+                vectors,
+                I=5,
+                path=vector,
+                vector_size=dim
+            )
+

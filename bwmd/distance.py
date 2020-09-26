@@ -7,9 +7,9 @@ from scipy.spatial import distance as distance_scipy
 import annoy
 from gmpy2 import hamdist, to_binary
 import time
-
 # Set random seed.
 random.seed(42)
+
 
 def hamming(a, b):
     '''
@@ -166,24 +166,21 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
         # List the centroids as initialization for kmeans clustering.
         centroids = [list(vectors.keys()).index(word) for word in centroid_words]
+        # Create a reverse-mapping of tokens to clusters used to access the
+        # computed tables via later caching policy.
+        token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
+                                for token, vector in partition}
+        # Format output.
+        output = zip(centroids, [[word for word, vector in partition] for partition in partitions])
+        output = dict(output)
 
         # for centroid, tokens in zip(centroid_words, partitions):
         #     print(centroid.upper())
         #     print([token for token, vector in tokens])
         #     print('\n\n')
 
-        # Create a reverse-mapping of tokens to clusters used to access the
-        # computed tables via later caching policy.
-        token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
-                                for token, vector in partition}
-
-        # Format output.
-        output = zip(centroids, [[word for word, vector in partition] for partition in partitions])
-        output = dict(output)
-
         end = time.time()
         print('Time to cluster: ', str(round(end - start, 3)))
-        # exit()
 
         return output, cache, token_to_centroid
 
@@ -224,20 +221,22 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
     real_value_vectors, words = load_vectors(raw_vectors,
-
-                                size=10000,
-
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
     tables = []
     start = time.time()
+    # Compute and store a table for each cluster.
     for cluster in ids.items():
         table = build_lookup_table(cluster, real_value_vectors)
         tables.append(table)
         if save:
             with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
                 dill.dump(table, f)
+
+    # Store the reverse mapping for indexing the tables.
+    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+        dill.dump(token_to_centroid, f)
 
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
