@@ -5,7 +5,7 @@ import dill
 from bwmd.compressor import load_vectors
 from scipy.spatial import distance as distance_scipy
 import annoy
-
+from gmpy2 import hamdist
 
 # Set random seed.
 random.seed(42)
@@ -100,7 +100,6 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
                 Precomputed values.
         '''
         import time
-        # from gmpy2 import hamdist
         start = time.time()
         # Create a cache of distances to remove repeated calculations.
         cache = {}
@@ -127,12 +126,10 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
                         except KeyError:
                             # Otherwise compute and store in cache.
                             if vector_size == 300:
-                                # distance = distance_scipy.cosine(vector, partition[centroid][1])
-                                distance = np.count_nonzero(vector != partition[centroid][1])
-                                # distance = hamdist(vector, partition[centroid][1])
+                                distance = distance_scipy.cosine(vector, partition[centroid][1])
                             else:
-                                # distance = hamming(vector, partition[centroid][1])
-                                distance = distance_scipy.hamming(vector, partition[centroid][1])
+                                distance = hamdist(vector, partition[centroid][1])
+
                             cache[word] = {}
                             cache[word][vector_space[centroid][0]] = distance
 
