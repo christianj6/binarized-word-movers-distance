@@ -139,13 +139,26 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
                     cluster = centroids[distances.index(min(distances))]
                     output[cluster].append(word)
 
+                # Adjust clusters to equal size.
+                len_cluster_1 = len(list(output.items())[0][1])
+                len_cluster_2 = len(list(output.items())[1][1])
+                larger_cluster = 0 if len_cluster_1 > len_cluster_2 else 1
                 # Update the lists.
                 both_clusters = [cluster_id for cluster_id, words in list(output.items()).copy()]
-                a, b = both_clusters[0], both_clusters[1]
-                new_partition.append([(word, vectors[word]) for word in output[a]])
-                new_partition.append([(word, vectors[word]) for word in output[b]])
-                centroid_words.append(partition[a][0])
-                centroid_words.append(partition[b][0])
+                larger_cluster = both_clusters.pop(larger_cluster)
+                smaller_cluster = both_clusters[0]
+                sample_size = abs(len_cluster_1 - len_cluster_2)
+                sample_size = round(sample_size / 2)
+                for word in random.sample(output[larger_cluster], sample_size):
+                    # Logically we can just swap assignments because only two clusters.
+                    output[larger_cluster].remove(word)
+                    output[smaller_cluster].append(word)
+
+                new_partition.append([(word, vectors[word]) for word in output[larger_cluster]])
+                new_partition.append([(word, vectors[word]) for word in output[smaller_cluster]])
+                centroid_words.append(partition[larger_cluster][0])
+                centroid_words.append(partition[smaller_cluster][0])
+                # Add the updated partitioning.
                 new_partitions += new_partition
 
             # Update partitions.
@@ -159,13 +172,20 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
         #     print([token for token, vector in tokens])
         #     print('\n\n')
 
+        # Create a reverse-mapping of tokens to clusters used to access the
+        # computed tables via later caching policy.
+        token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
+                                for token, vector in partition}
+
         # Format output.
         output = zip(centroids, [[word for word, vector in partition] for partition in partitions])
+        output = dict(output)
 
         end = time.time()
-        print(end - start)
+        print('Time to cluster: ', str(round(end - start, 3)))
+        # exit()
 
-        return output, cache
+        return output, cache, token_to_centroid
 
     def build_lookup_table(cluster, real_value_vectors):
         '''
@@ -186,12 +206,12 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
         table = {}
         idx, words, = cluster
         for word_1 in words:
-            table[word1] = {}
+            table[word_1] = {}
             for word_2 in words:
                 # Get cosine distance with real-value vectors.
                 distance = distance_scipy.cosine(real_value_vectors[word_1],
                                     real_value_vectors[word_2])
-                table[word_1][word2] = distance
+                table[word_1][word_2] = distance
 
         return table
 
@@ -199,23 +219,30 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
     # maximum number of iterations cf. Werner et al. (2019).
     k = round(math.sqrt(len(vectors) / I))
     # Perform k-means clustering on the data.
-    ids, cache = kmeans(k)
+    ids, cache, token_to_centroid = kmeans(k)
     # Build lookup tables based on ids.
+    raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
-    real_value_vectors, words = load_vectors(VECTORS,
-                            expected_dimensions=300,
+    real_value_vectors, words = load_vectors(raw_vectors,
+
+                                size=10000,
+
+                                expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
     tables = []
+    start = time.time()
     for cluster in ids.items():
         table = build_lookup_table(cluster, real_value_vectors)
         tables.append(table)
         if save:
-            # TODO: Fix file names across the repo.
-            with open(f"res\\tables\\{path.split('.')[0]}\\{cluster}", 'wb') as f:
+            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
                 dill.dump(table, f)
 
-    return tables
+    end = time.time()
+    print('Time to compute lookup tables: ', str(round(end - start, 3)))
+
+    return tables, token_to_centroid
 
 
 class BWMD():
