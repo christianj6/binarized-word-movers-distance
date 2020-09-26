@@ -4,9 +4,10 @@ from tqdm import tqdm
 import dill
 from bwmd.compressor import load_vectors
 from scipy.spatial import distance as distance_scipy
-import annoy
+# import annoy
 from gmpy2 import hamdist, to_binary
 import time
+from collections import OrderedDict
 # Set random seed.
 random.seed(42)
 
@@ -246,18 +247,88 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
 class BWMD():
     '''
+    Object for managing in-memory cache of precomputed
+    word vector distance tables, and for calculating
+    the binarized word mover's distance between
+    pairs of texts.
     '''
-    def __init__(self):
+    class LRUCache():
         '''
+        Ordered dictionary object with some custom methods
+        for managing a cache of cluster distance lookup tables.
         '''
-        # TODO: self.tables --> load from file into a mapping of word to table
-        # TODO: self.cache --> load from files into a dict of table_id
-        pass
+        def __init__(self, capacity, key, model, dim):
+            '''
+            Initialize the cache object.
+
+            Parameters
+            ---------
+                capacity : int
+                    Maximum number of tables that can be
+                    stored in the cache, otherwise the least-recently
+                    used item is removed. This capacity should be
+                    within your devices working memory limits.
+            '''
+            self.cache = OrderedDict()
+            self.capacity = capacity
+            self.key = key
+            self.directory = f"res\\tables\\{model}\\{dim}"
+
+        def get(self, word_1, word_2):
+            '''
+            Get an item from the cache.
+            '''
+            try:
+                # First try to get the value.
+                return self.cache[key[word_1]][word_1][word_2]
+            except KeyError:
+                # If unavailable, load the necessary table.
+                load(self.key[key])
+                # Then return the relevant value.
+                return self.cache[key[word_1]][word_1][word_2]
+
+        def load(self, table):
+            '''
+            Load a new table into the cache if it
+            is not yet in the cache.
+            '''
+            # Load the needed table into the cache.
+            with open(f"{self.directory}\\{table}", "rb") as f:
+                self.cache[table] = dill.load(f)
+                # Move it to the end of the cache.
+                self.cache.move_to_end(table)
+
+            # Drop the least-used item, ie the first.
+            if len(self.cache) > self.capacity:
+                self.cache.popitem(last=False)
+
+
+    def __init__(self, model, dim):
+        '''
+        Initialize table key and cache.
+
+        Parameters
+        ---------
+            model : str
+                Name of model corresponding to a
+                parent directory for tables.
+            dim : str
+                Number of dimensions corresponding to
+                directory for tables.
+        '''
+        with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
+            self.cache = LRUCache(2, dill.load(f), model, dim)
 
 
     def similarity(a, b, distance=False):
         '''
         '''
+
+        # TODO: cache will be a nested dict: look for table, look for word pair, but
+            # if error load then lookup
+
+        # TODO: how to implement removal policy????
+
         # TODO: Preprocess??
         # TODO: Computes the similarity between two documents.
         # TODO: Nested functions to handle the other computations.
