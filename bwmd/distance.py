@@ -268,6 +268,12 @@ class BWMD():
                     stored in the cache, otherwise the least-recently
                     used item is removed. This capacity should be
                     within your devices working memory limits.
+                key: dict
+                    Mapping of words to tables.
+                model : str
+                    Name of model.
+                dim : str
+                    Dimension of data.
             '''
             self.cache = OrderedDict()
             self.capacity = capacity
@@ -277,6 +283,13 @@ class BWMD():
         def get(self, word_1, word_2):
             '''
             Get an item from the cache.
+
+            Parameters
+            ---------
+                word_1 : str
+                    First word for getting distance.
+                word_2 : str
+                    Second word for getting distance.
             '''
             try:
                 # First try to get the value.
@@ -291,6 +304,11 @@ class BWMD():
             '''
             Load a new table into the cache if it
             is not yet in the cache.
+
+            Parameters
+            ---------
+                table : str
+                    Name of table.
             '''
             # Load the needed table into the cache.
             with open(f"{self.directory}\\{table}", "rb") as f:
@@ -319,44 +337,27 @@ class BWMD():
         with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
             self.cache = LRUCache(2, dill.load(f), model, dim)
 
+        # TODO: Make the lookup table of dependency distances.
+        self.dependency_distances = dict()
 
-    def similarity(a, b, distance=False):
+
+    def get_distance(self, a, b):
         '''
         '''
-
-        # TODO: cache will be a nested dict: look for table, look for word pair, but
-            # if error load then lookup
-
-        # TODO: how to implement removal policy????
-
-        # TODO: Preprocess??
-        # TODO: Computes the similarity between two documents.
-        # TODO: Nested functions to handle the other computations.
-        # TODO: Appropriate functions for syntactic dependency info.
-        # TODO: Error handling or clever strategy if trying to
-        # compute a distance which is not represented within a
-        # lookup table.
-        # TODO: if distance return 1 - similarity
-        # TODO: dict lookup table for dependency distances
-        # TODO: Convert words to numbers for faster lookup??
 
         # TODO: Sum both directions for bidirectional cf Hamann
         # TODO: Normalize the summation components by document distance d?
 
         wmd = 0
-        # TODO: Get a list of dependencies for a and b, respectively.
+        # TODO: Get a list of syntactic dependencies for a and b, respectively.
         a_dep, b_dep = get_dependencies(a), get_dependencies(b)
-        dependency_distances = dict()
         for i, word_a in enumerate(a):
             distances = []
             for word_b in b:
                 try:
-                    distance = self.cache[self.tables[word_a]][word_a][word_b]
+                    # Get value from cache. Cache handles itself.
+                    distance = self.cache.get(word_a, word_b)
                 except KeyError:
-                    # TODO: Check if in different tables.
-                    if self.tables[word_a] == self.tables[word_b]:
-                        pass
-                        # TODO: Load into the cache and get the distance.
                     else:
                         # TODO: Use a default value.
                         pass
@@ -369,14 +370,18 @@ class BWMD():
             wmd += distance * dependency_distance
 
 
-
-
+    @staticmethod
+    def get_dependencies():
+        '''
+        '''
+        # TODO: Return as integers compatible with dependency table.
         pass
 
 
-    def pairwise():
+    def pairwise(self):
         '''
         '''
-        # TODO: Use self.cache for a cache removal policy.
+        # TODO: Iterate over a set of docs and compute similarity.
         # TODO: Multiprocessing.
+        # TODO: Return pairwise matrix.
         pass

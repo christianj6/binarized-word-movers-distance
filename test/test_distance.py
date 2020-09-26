@@ -1,6 +1,6 @@
 import unittest
 from bwmd.compressor import load_vectors
-from bwmd.distance import convert_vectors_to_dict, build_kmeans_lookup_tables
+from bwmd.distance import convert_vectors_to_dict, build_kmeans_lookup_tables, BWMD
 
 
 VECTORS = 'res\\glove-512.txtc'
@@ -28,16 +28,18 @@ class TestCase(unittest.TestCase):
         tables = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
 
 
-    def test_bwmd_similarity(self):
+    def test_bwmd_distance(self):
         '''
         Test for computing the BWMD similarity score
         for a small set of test sentences.
         '''
-        # TODO: Initialize BWMD.
-        # TODO: Compute distance between two sample texts.
+        # Initialize BWMD.
+        bwmd = BWMD('glove', '512')
+        # Sample texts for testing.
         text_a = ['Obama speaks to the media in Illinois.']
         text_b = ['The President greets the press in Chicago.']
         # TODO: Preprocess the texts.
+        # TODO: Compute DISTANCE between the texts.
         pass
 
 
