@@ -336,7 +336,7 @@ class BWMD():
                 self.cache.popitem(last=False)
 
 
-    def __init__(self, model, dim):
+    def __init__(self, model, dim, with_syntax=True):
         '''
         Initialize table key and cache.
 
@@ -353,7 +353,8 @@ class BWMD():
             self.cache = self.LRUCache(5, dill.load(f), model, dim)
 
         # TODO: Make the lookup table of dependency distances.
-        self.dependency_distances = dict()
+        if with_syntax:
+            self.dependency_distances = dict()
 
 
     def get_distance(self, text_a, text_b):
@@ -397,28 +398,24 @@ class BWMD():
                     Unidirectional score.
             '''
             wmd = 0
-            # TODO: Get a list of syntactic dependencies for a and b, respectively.
-            a_dep, b_dep = get_dependencies(a), get_dependencies(b)
             for i, word_a in enumerate(a):
                 distances = []
                 for word_b in b:
-                    try:
-                        # Get value from cache. Cache handles itself.
-                        distance = self.cache.get(word_a, word_b)
-                        print(distance)
-                    # except KeyError:
-                    except AttributeError:
-                        # TODO: Use a default value.
-                        print('Distance not found')
-                        pass
-
+                    # Get value from cache. Cache handles itself.
+                    distance = self.cache.get(word_a, word_b)
                     distances.append(distance)
 
                 distance = min(distances)
-                # dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+                try:
 
-                # wmd += distance * dependency_distance
-                wmd += distance
+
+                    # TODO: Get a list of syntactic dependencies for a and b, respectively.
+
+                    a_dep, b_dep = get_dependencies(a), get_dependencies(b)
+                    dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+                    wmd += distance * dependency_distance
+                except (TypeError, AttributeError):
+                    wmd += distance
 
             # Divide by length of first text to normalize the score.
             return wmd / len(a)

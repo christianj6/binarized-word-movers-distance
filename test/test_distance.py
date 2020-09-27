@@ -34,20 +34,15 @@ class TestCase(unittest.TestCase):
         for a small set of test sentences.
         '''
         # Initialize BWMD.
-        bwmd = BWMD('glove', '512')
+        bwmd = BWMD('glove', '512', with_syntax=False)
         # Sample texts for testing.
-        # text_a = ['Obama speaks to the media in Illinois.']
-        # text_b = ['The President greets the press in Chicago.']
-
-        text_a = ['points', 'link', 'Health', 'Information', 'save', 'Team']
-        text_b = ['points', 'link', 'Health', 'Information', 'save', 'key', 'found']
-        # text_a = ['points']
-        # text_b = ['points']
-
-
-        # text_b = ['ago', 'found', 'based', 'bad', 'mind']
-        # TODO: Preprocess the texts.
-        # TODO: Compute DISTANCE between the texts.
+        # text_a = 'Obama speaks to the media in Illinois.'
+        # text_b = 'The President greets the press in Chicago.'
+        text_a = 'The water quality is bad .'
+        text_b = 'The environment is good .'
+        # Preprocess the texts.
+        text_a, text_b = text_a.split(' '), text_b.split(' ')
+        # Compute distance between the texts.
         distance = bwmd.get_distance(text_a, text_b)
         print(distance)
 
