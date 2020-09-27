@@ -25,7 +25,7 @@ class TestCase(unittest.TestCase):
                             expected_dimensions=DIM,
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
-        tables = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
+        token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
 
 
     def test_bwmd_distance(self):
@@ -36,8 +36,11 @@ class TestCase(unittest.TestCase):
         # Initialize BWMD.
         bwmd = BWMD('glove', '512')
         # Sample texts for testing.
-        text_a = ['Obama speaks to the media in Illinois.']
-        text_b = ['The President greets the press in Chicago.']
+        # text_a = ['Obama speaks to the media in Illinois.']
+        # text_b = ['The President greets the press in Chicago.']
+
+        text_a = ['points', 'link', 'Health', 'Information', 'save', 'Team']
+        text_b = ['ago', 'found', 'based', 'bad', 'mind']
         # TODO: Preprocess the texts.
         # TODO: Compute DISTANCE between the texts.
         pass

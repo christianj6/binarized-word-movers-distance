@@ -167,6 +167,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
         # List the centroids as initialization for kmeans clustering.
         centroids = [list(vectors.keys()).index(word) for word in centroid_words]
+
         # Create a reverse-mapping of tokens to clusters used to access the
         # computed tables via later caching policy.
         token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
@@ -218,6 +219,15 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
     k = round(math.sqrt(len(vectors) / I))
     # Perform k-means clustering on the data.
     ids, token_to_centroid = kmeans(k)
+
+    # Store the reverse mapping for indexing the tables.
+    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+        dill.dump(token_to_centroid, f)
+
+    # Store the output for constructing the tables.
+    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_ids", 'wb') as f:
+        dill.dump(ids, f)
+
     # Build lookup tables based on ids.
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
@@ -225,24 +235,18 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
-    tables = []
     start = time.time()
     # Compute and store a table for each cluster.
     for cluster in ids.items():
         table = build_lookup_table(cluster, real_value_vectors)
-        tables.append(table)
         if save:
             with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
                 dill.dump(table, f)
 
-    # Store the reverse mapping for indexing the tables.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
-        dill.dump(token_to_centroid, f)
-
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
 
-    return tables, token_to_centroid
+    return token_to_centroid
 
 
 class BWMD():
