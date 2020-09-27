@@ -295,14 +295,25 @@ class BWMD():
                 word_2 : str
                     Second word for getting distance.
             '''
+            table = self.key[word_1]
             try:
                 # First try to get the value.
-                return self.cache[key[word_1]][word_1][word_2]
+                return self.cache[table][word_1][word_2]
             except KeyError:
-                # If unavailable, load the necessary table.
-                load(self.key[key])
-                # Then return the relevant value.
-                return self.cache[key[word_1]][word_1][word_2]
+                try:
+                    # If unavailable, load the necessary table.
+                    self.load(table)
+
+                    # TODO: Adjust loading policy for tokens in different clusters,
+                    # because otherwise it will just keep trying to load when it
+                    # is hopeless. Or is it okay??
+
+                    # Try to return the relevant value.
+                    return self.cache[table][word_1][word_2]
+                except KeyError:
+                    # If the two points are in different clusters,
+                    # return default maximum value.
+                    return 1
 
         def load(self, table):
             '''
@@ -339,46 +350,87 @@ class BWMD():
                 directory for tables.
         '''
         with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
-            self.cache = LRUCache(2, dill.load(f), model, dim)
+            self.cache = self.LRUCache(5, dill.load(f), model, dim)
 
         # TODO: Make the lookup table of dependency distances.
         self.dependency_distances = dict()
 
 
-    def get_distance(self, a, b):
+    def get_distance(self, text_a, text_b):
         '''
+        Compute the BWMD when provided with two texts.
+
+        Parameters
+        ---------
+            text_a : list
+                Single document as list of token strings.
+            text_b : list
+                Second document as list of token strings.
+
+        Returns
+        ---------
+            bwmd : float
+                Distance score.
         '''
+        def get_dependencies(text):
+            '''
+            '''
+            # TODO: Return as integers compatible with dependency table.
+            pass
 
-        # TODO: Sum both directions for bidirectional cf Hamann
-        # TODO: Normalize the summation components by document distance d?
+        def get_distance_unidirectional(a, b):
+            '''
+            Calculate the BWMD in one direction. Needed to
+            bootstrap a bidirectional distance as the metric
+            is inherently unidirectional.
 
-        wmd = 0
-        # TODO: Get a list of syntactic dependencies for a and b, respectively.
-        a_dep, b_dep = get_dependencies(a), get_dependencies(b)
-        for i, word_a in enumerate(a):
-            distances = []
-            for word_b in b:
-                try:
-                    # Get value from cache. Cache handles itself.
-                    distance = self.cache.get(word_a, word_b)
-                except KeyError:
-                    # TODO: Use a default value.
-                    pass
+            Parameters
+            ---------
+                a : list
+                    One document as list of token strings.
+                b : list
+                    Another document as list of token strings.
 
-                distances.append(distance)
+            Returns
+            ---------
+                distance_uni : float
+                    Unidirectional score.
+            '''
+            wmd = 0
+            # TODO: Get a list of syntactic dependencies for a and b, respectively.
+            a_dep, b_dep = get_dependencies(a), get_dependencies(b)
+            for i, word_a in enumerate(a):
+                distances = []
+                for word_b in b:
+                    try:
+                        # Get value from cache. Cache handles itself.
+                        distance = self.cache.get(word_a, word_b)
+                        print(distance)
+                    # except KeyError:
+                    except AttributeError:
+                        # TODO: Use a default value.
+                        print('Distance not found')
+                        pass
 
-            distance = min(distances)
-            dependency_distance = dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+                    distances.append(distance)
 
-            wmd += distance * dependency_distance
+                distance = min(distances)
+                # dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
 
+                # wmd += distance * dependency_distance
+                wmd += distance
 
-    @staticmethod
-    def get_dependencies():
-        '''
-        '''
-        # TODO: Return as integers compatible with dependency table.
-        pass
+            # Divide by length of first text to normalize the score.
+            return wmd / len(a)
+
+        # Get score from both directions and sum to make the
+        # metric bidirectional. Summation determined to be most
+        # effective approach cf. Hamann (2018).
+        bwmd = get_distance_unidirectional(text_a, text_b)
+        bwmd += get_distance_unidirectional(text_b, text_a)
+
+        # Divide by two to normalize the score.
+        return bwmd / 2
 
 
     def pairwise(self):

@@ -14,18 +14,18 @@ class TestCase(unittest.TestCase):
     cache-removal policy, and distance calculation
     functionality.
     '''
-    def test_knn_lookup_table(self):
-        '''
-        Test for building the knn lookup table
-        accessed during distance-computations in
-        combination with intelligent caching policy.
-        '''
-        vectors, words = load_vectors(VECTORS,
-                            size=10_000,
-                            expected_dimensions=DIM,
-                                expected_dtype=COMPRESSION, get_words=True)
-        vectors = convert_vectors_to_dict(vectors, words)
-        token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
+    # def test_knn_lookup_table(self):
+    #     '''
+    #     Test for building the knn lookup table
+    #     accessed during distance-computations in
+    #     combination with intelligent caching policy.
+    #     '''
+    #     vectors, words = load_vectors(VECTORS,
+    #                         size=10_000,
+    #                         expected_dimensions=DIM,
+    #                             expected_dtype=COMPRESSION, get_words=True)
+    #     vectors = convert_vectors_to_dict(vectors, words)
+    #     token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
 
 
     def test_bwmd_distance(self):
@@ -40,10 +40,16 @@ class TestCase(unittest.TestCase):
         # text_b = ['The President greets the press in Chicago.']
 
         text_a = ['points', 'link', 'Health', 'Information', 'save', 'Team']
-        text_b = ['ago', 'found', 'based', 'bad', 'mind']
+        text_b = ['points', 'link', 'Health', 'Information', 'save', 'key', 'found']
+        # text_a = ['points']
+        # text_b = ['points']
+
+
+        # text_b = ['ago', 'found', 'based', 'bad', 'mind']
         # TODO: Preprocess the texts.
         # TODO: Compute DISTANCE between the texts.
-        pass
+        distance = bwmd.get_distance(text_a, text_b)
+        print(distance)
 
 
     def test_bwmd_pairwise(self):
