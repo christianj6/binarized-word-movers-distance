@@ -183,7 +183,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
         end = time.time()
         print('Time to cluster: ', str(round(end - start, 3)))
 
-        return output, cache, token_to_centroid
+        return output, token_to_centroid
 
     def build_lookup_table(cluster, real_value_vectors):
         '''
@@ -217,7 +217,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
     # maximum number of iterations cf. Werner et al. (2019).
     k = round(math.sqrt(len(vectors) / I))
     # Perform k-means clustering on the data.
-    ids, cache, token_to_centroid = kmeans(k)
+    ids, token_to_centroid = kmeans(k)
     # Build lookup tables based on ids.
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
