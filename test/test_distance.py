@@ -14,23 +14,23 @@ class TestCase(unittest.TestCase):
     cache-removal policy, and distance calculation
     functionality.
     '''
-    # def test_knn_lookup_table(self):
-    #     '''
-    #     Test for building the knn lookup table
-    #     accessed during distance-computations in
-    #     combination with intelligent caching policy.
-    #     '''
-    #     vectors, words = load_vectors(VECTORS,
-    #                         size=10_000,
-    #                         expected_dimensions=DIM,
-    #                             expected_dtype=COMPRESSION, get_words=True)
-    #     vectors = convert_vectors_to_dict(vectors, words)
-    #     token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
+    def test_knn_lookup_table(self):
+        '''
+        Test for building the knn lookup table
+        accessed during distance-computations in
+        combination with intelligent caching policy.
+        '''
+        vectors, words = load_vectors(VECTORS,
+                            size=10_000,
+                            expected_dimensions=DIM,
+                                expected_dtype=COMPRESSION, get_words=True)
+        vectors = convert_vectors_to_dict(vectors, words)
+        token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
 
 
     def test_bwmd_distance(self):
         '''
-        Test for computing the BWMD similarity score
+        Test for computing the BWMD distance score
         for a small set of test sentences.
         '''
         # Initialize BWMD.
@@ -49,8 +49,12 @@ class TestCase(unittest.TestCase):
 
     def test_bwmd_pairwise(self):
         '''
+        Test for computing the BWMD distance across
+        a corpus of documents and returing a
+        pairwise distance matrix.
         '''
         # TODO: Initialize BWMD.
+        # TODO: Initialize corpus of texts.
         # TODO: Compute pairwise distances for a
         # list of texts.
         # TODO: Evaluate the cache-removal policy.

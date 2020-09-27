@@ -4,7 +4,6 @@ from tqdm import tqdm
 import dill
 from bwmd.compressor import load_vectors
 from scipy.spatial import distance as distance_scipy
-# import annoy
 from gmpy2 import hamdist, to_binary
 import time
 from collections import OrderedDict
@@ -375,7 +374,24 @@ class BWMD():
         '''
         def get_dependencies(text):
             '''
+            Get a list of syntactic dependencies for a given text with
+            dependency integers correponding to the tokens in the text. Used
+            to lookup a syntactic dependency diatance from precomputed
+            table based on the Stanford dependency hierarchy.
+
+            Parameters
+            ---------
+                text : list
+                    Text as list of string tokens.
+
+            Return
+            ---------
+                dependencies : list
+                    List of dependencies for the text.
             '''
+            # TODO: Parse the sentence, retrieving the dependencies.
+            # TODO: Use spacy and convert to Stanford.
+            # TODO: Reformat for compatibility with my dict.
             # TODO: Return as integers compatible with dependency table.
             pass
 
@@ -431,10 +447,24 @@ class BWMD():
         return bwmd / 2
 
 
-    def pairwise(self):
+    def pairwise(self, corpus):
         '''
+        Compute pairwise BWMD distances for all documents
+        in a given corpus.
+
+        Parameters
+        ---------
+            corpus : list[list[str]]
+                List of documents as lists of token strings.
+
+        Returns
+        ---------
+            pairwise_distances : list
+                Matrix of document pairwise distances.
         '''
+        # TODO: Clarify the output format.
         # TODO: Iterate over a set of docs and compute similarity.
         # TODO: Multiprocessing.
+        # TODO: Try to store some stuff in a cache ie the dependencies.
         # TODO: Return pairwise matrix.
         pass
