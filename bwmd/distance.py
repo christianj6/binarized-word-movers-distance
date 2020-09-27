@@ -350,7 +350,7 @@ class BWMD():
                 directory for tables.
         '''
         with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
-            self.cache = self.LRUCache(5, dill.load(f), model, dim)
+            self.cache = self.LRUCache(15, dill.load(f), model, dim)
 
         # TODO: Make the lookup table of dependency distances.
         if with_syntax:
@@ -408,7 +408,8 @@ class BWMD():
                 distance = min(distances)
                 try:
 
-
+                    # TODO: Try get syntax info, if error assume that object is not
+                    # configured for getting syntex information.
                     # TODO: Get a list of syntactic dependencies for a and b, respectively.
 
                     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
