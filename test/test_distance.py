@@ -34,12 +34,10 @@ class TestCase(unittest.TestCase):
         for a small set of test sentences.
         '''
         # Initialize BWMD.
-        bwmd = BWMD('glove', '512', with_syntax=False)
+        bwmd = BWMD('glove', '512', with_syntax=False, raw_hamming=True)
         # Sample texts for testing.
-        # text_a = 'Obama speaks to the media in Illinois.'
-        # text_b = 'The President greets the press in Chicago.'
-        text_a = 'The water quality is bad .'
-        text_b = 'The environment is good .'
+        text_a = 'Obama speaks to the media in Illinois .'
+        text_b = 'The President greets the press in Chicago .'
         # Preprocess the texts.
         text_a, text_b = text_a.split(' '), text_b.split(' ')
         # Compute distance between the texts.

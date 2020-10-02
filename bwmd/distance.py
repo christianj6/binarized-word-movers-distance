@@ -213,9 +213,13 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
         return table
 
-    # Determine optimal k-value based on length of dataset and
-    # maximum number of iterations cf. Werner et al. (2019).
-    k = round(math.sqrt(len(vectors) / I))
+    # Determine optimal k-value based
+    # on total number of desired clusters.
+    k = 2**11
+    print('Making partition: ', str(k))
+    # Estimate required memory.
+    mem = (((len(vectors) / k)**2 * 12) * k) / 1073741274
+    print(f'Estimated to require {round(mem, 2)} GB.')
     # Perform k-means clustering on the data.
     ids, token_to_centroid = kmeans(k)
 
@@ -335,7 +339,7 @@ class BWMD():
                 self.cache.popitem(last=False)
 
 
-    def __init__(self, model, dim, with_syntax=True):
+    def __init__(self, model, dim, with_syntax=True, raw_hamming=False):
         '''
         Initialize table key and cache.
 
@@ -347,11 +351,27 @@ class BWMD():
             dim : str
                 Number of dimensions corresponding to
                 directory for tables.
+            with_syntax : bool
+                y/n to use syntax in the distance calculations.
+            raw_hamming : bool
+                y/n to use raw hamming distances based on binary vectors, rather
+                than cosine distances from a precomputed lookup table.
         '''
-        with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
-            self.cache = self.LRUCache(15, dill.load(f), model, dim)
+        self.dim = int(dim)
+        if not raw_hamming:
+            with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
+                # Create cache from lookup tables.
+                self.cache = self.LRUCache(15, dill.load(f), model, dim)
 
-        # TODO: Make the lookup table of dependency distances.
+        else:
+            # Load the raw binary vectors.
+            filepath = f"res\\{model}-{dim}.txtc"
+            vectors, words = load_vectors(filepath,
+                                expected_dimensions=int(dim),
+                                    expected_dtype='bool_', get_words=True)
+            self.vectors = convert_vectors_to_dict(vectors, words)
+
+        # TODO: Load the lookup table of dependency distances.
         if with_syntax:
             self.dependency_distances = dict()
 
@@ -417,9 +437,15 @@ class BWMD():
             for i, word_a in enumerate(a):
                 distances = []
                 for word_b in b:
-                    # Get value from cache. Cache handles itself.
-                    distance = self.cache.get(word_a, word_b)
-                    distances.append(distance)
+                    try:
+                        # Get value from cache. Cache handles itself.
+                        distance = self.cache.get(word_a, word_b)
+                    except AttributeError:
+                        # Means there is not cache ie we are using raw hamming.
+                        distance = hamdist(self.vectors[word_a], self.vectors[word_b])
+
+                    # Divide by dimension to normalize score.
+                    distances.append(distance / self.dim)
 
                 distance = min(distances)
                 try:
