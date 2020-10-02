@@ -672,7 +672,9 @@ def save_vectors(path:str, words:list, vectors_batched:np.array, compression:str
 
 def load_vectors(path, size:int=None,
                 expected_dimensions:int=300,
-                expected_dtype:str='float32', get_words=False)->list:
+                expected_dtype:str='float32',
+                get_words:bool=False,
+                bitarray:bool=False)->list:
     '''
     Load word embedding vectors from file.
 
@@ -717,8 +719,25 @@ def load_vectors(path, size:int=None,
                 word = line[0]
                 if expected_dtype == 'bool_':
                     bits = line[1]
+                    if bitarray:
+                        # Option to use bitarray representation, which
+                        # allows us to retrieve the original string,
+                        # necessary for interface with some
+                        # external libraries.
+                        vector = BitArray(bin=bits)
+                        if len(bits) == expected_dimensions:
+                            vectors.append(vector)
+                            words.append(word)
+                        continue
+
+                    # Otherwise convert vector to integers and pack into
+                    # primitive data structure, which is much faster.
                     vector = list(bits)
                     vector = [int(item) for item in vector]
+                    # Pack vector into primitive. The resulting object will
+                    # not have the same length as the original
+                    # vector but will remain an accurate bitwise
+                    # representation for hamming calculations.
                     vector = pack(vector,1)
                     if len(bits) == expected_dimensions:
                         vectors.append(vector)

@@ -160,7 +160,7 @@ class TestCase(unittest.TestCase):
                 # Load vectors from file.
                 vectors, words = load_vectors(vector_path,
                                         get_words=True, expected_dimensions=size,
-                                        expected_dtype=dtype)
+                                        expected_dtype=dtype, bitarray=True)
                 # Convert to dict for easier access.
                 vectors = convert_vectors_to_dict(vectors, words)
                 # Print a summary of the testing method etc.
