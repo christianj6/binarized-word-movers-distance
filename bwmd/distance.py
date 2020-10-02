@@ -139,25 +139,14 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
                     cluster = centroids[distances.index(min(distances))]
                     output[cluster].append(word)
 
-                # Adjust clusters to equal size.
-                len_cluster_1 = len(list(output.items())[0][1])
-                len_cluster_2 = len(list(output.items())[1][1])
-                larger_cluster = 0 if len_cluster_1 > len_cluster_2 else 1
                 # Update the lists.
                 both_clusters = [cluster_id for cluster_id, words in list(output.items()).copy()]
-                larger_cluster = both_clusters.pop(larger_cluster)
-                smaller_cluster = both_clusters[0]
-                sample_size = abs(len_cluster_1 - len_cluster_2)
-                sample_size = round(sample_size / 2)
-                for word in random.sample(output[larger_cluster], sample_size):
-                    # Logically we can just swap assignments because only two clusters.
-                    output[larger_cluster].remove(word)
-                    output[smaller_cluster].append(word)
+                a, b = both_clusters[0], both_clusters[1]
+                new_partition.append([(word, vectors[word]) for word in output[a]])
+                new_partition.append([(word, vectors[word]) for word in output[b]])
+                centroid_words.append(partition[a][0])
+                centroid_words.append(partition[b][0])
 
-                new_partition.append([(word, vectors[word]) for word in output[larger_cluster]])
-                new_partition.append([(word, vectors[word]) for word in output[smaller_cluster]])
-                centroid_words.append(partition[larger_cluster][0])
-                centroid_words.append(partition[smaller_cluster][0])
                 # Add the updated partitioning.
                 new_partitions += new_partition
 
