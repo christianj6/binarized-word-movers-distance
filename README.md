@@ -17,8 +17,10 @@ This repository hosts code for the thesis 'Binarized Word Mover's Distance,' wri
 	|-- datasets
 	|-- images
 	|-- models
+	|-- tables
 |-- test
 </pre>
+
 
 ##### bwmd
 
@@ -26,7 +28,7 @@ Main source code directory, including scripts for autoencoder vector compression
 
 ##### res
 
-Resources and outputs. *datasets* contains the word similarity data used to evaluate compressed word vectors. *images* contains output images including a summary of autoencoder training. *models* contains saved models in case this parameter is provided during fitting. This directory is the expected location of the vectors used to fit the autoencoder model. As the vectors are too large to host on GitHub, they must be downloaded and manually-placed into this directory.
+Resources and outputs. *datasets* contains the word similarity data used to evaluate compressed word vectors. *images* contains output images including a summary of autoencoder training. *models* contains saved models in case this parameter is provided during fitting. This directory is the expected location of the vectors used to fit the autoencoder model. As the vectors are too large to host on GitHub, they must be downloaded and manually-placed into this directory. *tables* contains computed lookup tables produced with the *clusters* module. 
 
 ##### test
 
@@ -56,8 +58,10 @@ Specific tests may be run by accessing the *test* module.
 
 ### TODO
 
-- [ ] Module for distance calculations.
-- [ ] Test for distance metric evaluations.
+- [x] Module for distance calculations.
+- [x] Test for distance metric evaluations.
+- [ ] Integrate syntax module with distance.
+- [ ] Triplets evaluation.
 - [ ] Information on obtaining and formatting vectors.
 - [ ] CLI support.
 
