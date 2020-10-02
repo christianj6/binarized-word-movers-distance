@@ -1,3 +1,29 @@
+'''
+OVERVIEW
+This module contains classes and methods for
+computing the so-called Binarized Word
+Mover's Distance and precomputing cluster-based
+lookup tables of pairwise word vector distances.
+Clusters are built using bisecting kmeans
+clustering and the distance metric itself is
+computed via the BWMD object, which can be
+configured to compute the distance with raw hamming
+space distances, or via the lookup tables, whereby an
+LRU caching strategy is employed with a helper class. For
+additional information on clustering parameters etc, please
+consult the appropriate classes.
+
+USAGE
+Load a set of vectors using the load_vectors method from
+bwmd.compressor, then convert these vectors to a dict
+using the method in this module. You must then pass these
+objects into the method build_kmeans_lookup_table, which will
+construct a hamming space partition and then compute and save
+a set of lookup tables corresponding to the individual partitions.
+By subsequently instantiating a BWMD class referring to the set
+of vectors used to construct the tables, you may compute the
+BWMD distance using these cached tables.
+'''
 import math
 import random
 from tqdm import tqdm
@@ -7,11 +33,12 @@ from scipy.spatial import distance as distance_scipy
 from gmpy2 import hamdist, to_binary
 import time
 from collections import OrderedDict
+import numpy as np
 # Set random seed.
 random.seed(42)
 
 
-def convert_vectors_to_dict(vectors, words):
+def convert_vectors_to_dict(vectors:list, words:list)->dict:
     '''
     Convert a set of loaded word vectors
     to a word-vector dictionary for
@@ -36,7 +63,8 @@ def convert_vectors_to_dict(vectors, words):
     return vectors_dict
 
 
-def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
+def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
+                        save=True, vector_size=300)->dict:
     '''
     Build a set of lookup tables by first clustering
     all embeddings and then computing pairwise intra-cluster
@@ -56,11 +84,11 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
     Returns
     ---------
-        tables : list
-            List of lookup tables. Each table corresponds
-            to a single computed cluster.
+        token_to_centroid : dict
+            Dictonary mapping tokens to their tables. Used for later
+            access of table distances..
     '''
-    def kmeans(k):
+    def kmeans(k:int)->dict:
         '''
         Bisecting K-means cluster algorithm for binary vectors. Uses
         hamming distance instead of Euclidean distance.
@@ -153,7 +181,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
         return output, token_to_centroid
 
-    def build_lookup_table(cluster, real_value_vectors):
+    def build_lookup_table(cluster:tuple, real_value_vectors:dict)->dict:
         '''
         Constructs a hamming distance lookup table for a given
         dict entry produced by the kmeans method.
@@ -162,6 +190,9 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
         ---------
             cluster : tuple
                 Cluster id, [list of words]
+            real_value_vectors : dict
+                Dictonary of real-valued vectors for
+                computing the cosine distance of paired words.
 
         Returns
         ---------
@@ -183,7 +214,7 @@ def build_kmeans_lookup_tables(vectors, I, path, save=True, vector_size=300):
 
     # Determine optimal k-value based
     # on total number of desired clusters.
-    k = 2**11
+    k = 2**I
     print('Making partition: ', str(k))
     # Estimate required memory.
     mem = (((len(vectors) / k)**2 * 12) * k) / 1073741274
@@ -232,7 +263,7 @@ class BWMD():
         Ordered dictionary object with some custom methods
         for managing a cache of cluster distance lookup tables.
         '''
-        def __init__(self, capacity, key, model, dim):
+        def __init__(self, capacity:int, key:dict, model:str, dim:str)->None:
             '''
             Initialize the cache object.
 
@@ -255,7 +286,7 @@ class BWMD():
             self.key = key
             self.directory = f"res\\tables\\{model}\\{dim}"
 
-        def get(self, word_1, word_2):
+        def get(self, word_1:str, word_2:str)->float:
             '''
             Get an item from the cache.
 
@@ -265,6 +296,13 @@ class BWMD():
                     First word for getting distance.
                 word_2 : str
                     Second word for getting distance.
+
+            Returns
+            ---------
+                distance : float
+                    Precomputed distance value. Returns
+                    an arbitrary, maximum default if not distance can
+                    be found.
             '''
             table = self.key[word_1]
             try:
@@ -274,11 +312,6 @@ class BWMD():
                 try:
                     # If unavailable, load the necessary table.
                     self.load(table)
-
-                    # TODO: Adjust loading policy for tokens in different clusters,
-                    # because otherwise it will just keep trying to load when it
-                    # is hopeless. Or is it okay??
-
                     # Try to return the relevant value.
                     return self.cache[table][word_1][word_2]
                 except KeyError:
@@ -286,7 +319,7 @@ class BWMD():
                     # return default maximum value.
                     return 1
 
-        def load(self, table):
+        def load(self, table:dict)->None:
             '''
             Load a new table into the cache if it
             is not yet in the cache.
@@ -307,7 +340,8 @@ class BWMD():
                 self.cache.popitem(last=False)
 
 
-    def __init__(self, model, dim, with_syntax=True, raw_hamming=False):
+    def __init__(self, model:str, dim:str,
+                    with_syntax:bool=True, raw_hamming:bool=False)->None:
         '''
         Initialize table key and cache.
 
@@ -344,7 +378,7 @@ class BWMD():
             self.dependency_distances = dict()
 
 
-    def get_distance(self, text_a, text_b):
+    def get_distance(self, text_a:list, text_b:list)->float:
         '''
         Compute the BWMD when provided with two texts.
 
@@ -360,7 +394,7 @@ class BWMD():
             bwmd : float
                 Distance score.
         '''
-        def get_dependencies(text):
+        def get_dependencies(text:list)->list:
             '''
             Get a list of syntactic dependencies for a given text with
             dependency integers correponding to the tokens in the text. Used
@@ -383,7 +417,7 @@ class BWMD():
             # TODO: Return as integers compatible with dependency table.
             pass
 
-        def get_distance_unidirectional(a, b):
+        def get_distance_unidirectional(a:list, b:list)->float:
             '''
             Calculate the BWMD in one direction. Needed to
             bootstrap a bidirectional distance as the metric
@@ -406,6 +440,10 @@ class BWMD():
                 distances = []
                 for word_b in b:
                     try:
+
+                        # TODO: Conditional to prevent attempting to load
+                        # values from different clusters.
+
                         # Get value from cache. Cache handles itself.
                         distance = self.cache.get(word_a, word_b)
                     except AttributeError:
@@ -441,7 +479,7 @@ class BWMD():
         return bwmd / 2
 
 
-    def pairwise(self, corpus):
+    def pairwise(self, corpus:list)->'np.array':
         '''
         Compute pairwise BWMD distances for all documents
         in a given corpus.

@@ -25,7 +25,7 @@ class TestCase(unittest.TestCase):
                             expected_dimensions=DIM,
                                 expected_dtype=COMPRESSION, get_words=True)
         vectors = convert_vectors_to_dict(vectors, words)
-        token_to_centroid = build_kmeans_lookup_tables(vectors, I=5, path=VECTORS, vector_size=DIM)
+        token_to_centroid = build_kmeans_lookup_tables(vectors, I=11, path=VECTORS, vector_size=DIM)
 
 
     def test_bwmd_distance(self):
