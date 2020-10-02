@@ -462,7 +462,7 @@ class BWMD():
 
                     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
                     dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
-                    wmd += distance * dependency_distance
+                    wmd += 0.75*distance + 0.25*dependency_distance
                 except (TypeError, AttributeError):
                     wmd += distance
 
