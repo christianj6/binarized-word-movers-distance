@@ -11,27 +11,6 @@ from collections import OrderedDict
 random.seed(42)
 
 
-def hamming(a, b):
-    '''
-    Hamming distance for bitarray vectors.
-
-    Parameters
-    ---------
-        a : BitArray
-            Vector a.
-        b : BitArray.
-            Vector b.
-
-    Returns
-    ---------
-        distance : int
-            Hamming distance, ie
-            number of overlapping
-            segments.
-    '''
-    return (a^b).count(True)
-
-
 def convert_vectors_to_dict(vectors, words):
     '''
     Convert a set of loaded word vectors
