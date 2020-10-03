@@ -92,7 +92,7 @@ def compute_all_lookup_tables():
         vectors = convert_vectors_to_dict(vectors, words)
         tables = build_kmeans_lookup_tables(
                 vectors,
-                I=5,
+                I=12,
                 path=vector,
                 vector_size=dim
             )
