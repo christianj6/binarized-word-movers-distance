@@ -4,38 +4,51 @@ import dill
 import random
 import math
 
+
 def get_leacock_chodorow_distance(path, maxdepth):
     '''
+    Returns the Leacock Chodorow path similarity,
+    when given a path distance and max depth.
+
+    Parameters
+    ---------
+        path : int
+            Shortest path.
+        maxdepth : int
+            Maximum depth of hierarchy.
+
+    Returns
+    ---------
+        similarity : float
+            LCH similarity
     '''
     return -math.log(path / (2*maxdepth))
 
 
 def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5):
-
     '''
-    From Joel's answer at https://stackoverflow.com/a/29597209/2966723.
-    Licensed under Creative Commons Attribution-Share Alike
+    Reformat a networkx graph that it can be visualized in a hierarchy. If
+    the graph is not a valid tree structure it will throw an error.
 
-    If the graph is a tree this will return the positions to plot this in a
-    hierarchical layout.
+    Parameters
+    ---------
+        G : nx.Graph
+            Original graph.
+        root : node
+            Root node.
+        width : float
+            Horizontal space between branches.
+        vert_gap : float
+            Vertical space between levels.
+        vert_loc : float
+            Vertical location of root node.
+        xcenter : float
+            Horizontal location of root node.
 
-    G: the graph (must be a tree)
-
-    root: the root node of current branch
-    - if the tree is directed and this is not given,
-      the root will be found and used
-    - if the tree is directed and this is given, then
-      the positions will be just for the descendants of this node.
-    - if the tree is undirected and not given,
-      then a random choice will be used.
-
-    width: horizontal space allocated for this branch - avoids overlap with other branches
-
-    vert_gap: gap between levels of hierarchy
-
-    vert_loc: vertical location of root
-
-    xcenter: horizontal location of root
+    Returns
+    ---------
+        pos : nx.pos
+            Positions for the graph.
     '''
     if not nx.is_tree(G):
         raise TypeError('cannot use hierarchy_pos on a graph that is not a tree')
@@ -47,14 +60,6 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter 
             root = random.choice(list(G.nodes))
 
     def _hierarchy_pos(G, root, width=1., vert_gap = 0.2, vert_loc = 0, xcenter = 0.5, pos = None, parent = None):
-        '''
-        see hierarchy_pos docstring for most arguments
-
-        pos: a dict saying where all nodes go if they have been assigned
-        parent: parent of this branch. - only affects it if non-directed
-
-        '''
-
         if pos is None:
             pos = {root:(xcenter,vert_loc)}
         else:
@@ -125,7 +130,7 @@ tags = ['acl',
 'root',
 'xcomp']
 
-# TODO: Create network graph of SpaCy dependencies, which
+# Create network graph of SpaCy dependencies, which
 # replicated the hierarchy present in the Stanford dependencies hierarchy.
 G = nx.Graph()
 # Add top-most nodes.
@@ -259,8 +264,6 @@ similarities = []
 for path in paths:
     similarities.append(get_leacock_chodorow_distance(path, max_depth))
 
-
-
 # Rescale and convert the LCH score to a distance.
 lch_distance = []
 mx, mn = max(similarities), min(similarities)
@@ -277,4 +280,3 @@ for tag1 in tags:
 
 with open('dependency_distances', "wb") as f:
     dill.dump(lch_distance_table, f)
-
