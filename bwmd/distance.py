@@ -36,6 +36,8 @@ from collections import OrderedDict
 import numpy as np
 import spacy
 from spacy.tokens import Doc
+from nltk.corpus import stopwords
+sw = stopwords.words("english")
 # Set random seed.
 random.seed(42)
 
@@ -450,8 +452,14 @@ class BWMD():
             '''
             wmd = 0
             for i, word_a in enumerate(a):
+                if word_a in sw:
+                    # Skip stopwords.
+                    continue
                 distances = []
                 for word_b in b:
+                    if word_b in sw:
+                        # Skip stopwords.
+                        pass
                     try:
                         # Conditional to prevent attempting to load
                         # values from different clusters.
@@ -480,7 +488,8 @@ class BWMD():
                     wmd += distance
 
             # Divide by length of first text to normalize the score.
-            return wmd / len(a)
+            # Length is controlled for stopwords.
+            return wmd / len([word for word in a if not word in sw])
 
         # Get score from both directions and sum to make the
         # metric bidirectional. Summation determined to be most
