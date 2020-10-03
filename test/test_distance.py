@@ -51,16 +51,20 @@ class TestCase(unittest.TestCase):
         a corpus of documents and returing a
         pairwise distance matrix.
         '''
-        # TODO: Initialize BWMD.
-        # TODO: Initialize corpus of texts.
-        text_a = 'Obama speaks to the media in Illinois .'
-        text_b = 'The President greets the press in Chicago .'
+        # Initialize BWMD.
+        bwmd = BWMD('glove', '512', with_syntax=True, raw_hamming=True)
+        # Initialize corpus of texts.
+        text_a = 'Obama speaks to the media in Illinois'
+        text_b = 'The President greets the press in Chicago'
         text_c = 'The man saw the woman'
         text_d = 'The woman saw the man'
-        # TODO: Compute pairwise distances for a
-        # list of texts.
+        corpus = [text_a, text_b, text_c, text_d]
+        # Preprocess the texts.
+        corpus = [text.split(' ') for text in corpus]
+        # Compute pairwise distances.
+        matrix = bwmd.pairwise(corpus)
+        print(matrix)
         # TODO: Evaluate the cache-removal policy.
-        pass
 
 
 def compute_all_lookup_tables():

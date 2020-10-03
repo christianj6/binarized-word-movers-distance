@@ -504,12 +504,20 @@ class BWMD():
 
         Returns
         ---------
-            pairwise_distances : list
+            pairwise_distances : list[list]
                 Matrix of document pairwise distances.
         '''
-        # TODO: Clarify the output format.
-        # TODO: Iterate over a set of docs and compute similarity.
+        # Iterate over a set of docs and compute similarity.
+        matrix = []
+        for doc_a in corpus:
+            distances = []
+            for doc_b in corpus:
+                distances.append(self.get_distance(doc_a, doc_b))
+
+            matrix.append(distances)
+
+        # Pairwise distance matrix.
+        return matrix
+
         # TODO: Multiprocessing.
         # TODO: Try to store some stuff in a cache ie the dependencies.
-        # TODO: Return pairwise matrix.
-        pass
