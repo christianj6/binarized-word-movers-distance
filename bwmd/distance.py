@@ -34,6 +34,8 @@ from gmpy2 import hamdist, to_binary
 import time
 from collections import OrderedDict
 import numpy as np
+import spacy
+from spacy.tokens import Doc
 # Set random seed.
 random.seed(42)
 
@@ -216,9 +218,9 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     # on total number of desired clusters.
     k = 2**I
     print('Making partition: ', str(k))
-    # Estimate required memory.
-    mem = (((len(vectors) / k)**2 * 12) * k) / 1073741274
-    print(f'Estimated to require {round(mem, 2)} GB.')
+    # TODO: Estimate required memory.
+    # mem = (((len(vectors) / k)**2 * 12) * k) / 1073741274
+    # print(f'Estimated to require {round(mem, 2)} GB.')
     # Perform k-means clustering on the data.
     ids, token_to_centroid = kmeans(k)
 
@@ -373,9 +375,12 @@ class BWMD():
                                     expected_dtype='bool_', get_words=True)
             self.vectors = convert_vectors_to_dict(vectors, words)
 
-        # TODO: Load the lookup table of dependency distances.
+        # Load the lookup table of dependency distances.
         if with_syntax:
-            self.dependency_distances = dict()
+            with open('res\\tables\\dependency_distances', 'rb') as f:
+                self.dependency_distances = dill.load(f)
+
+            self.nlp = spacy.load('en_core_web_sm')
 
 
     def get_distance(self, text_a:list, text_b:list)->float:
@@ -411,11 +416,19 @@ class BWMD():
                 dependencies : list
                     List of dependencies for the text.
             '''
-            # TODO: Parse the sentence, retrieving the dependencies.
-            # TODO: Use spacy and convert to Stanford.
-            # TODO: Reformat for compatibility with my dict.
-            # TODO: Return as integers compatible with dependency table.
-            pass
+            # Parse the sentence, retrieving the dependencies.
+            # The text is cast as a document to preserve the original
+            # tokenization and override Spacy's default tokenizer.
+            doc = Doc(self.nlp.vocab, words=text)
+            # Re-run the pipeline to obtain parsed text for chunking.
+            for name, proc in self.nlp.pipeline:
+                doc = proc(doc)
+
+            # Get the dependencies as a list.
+            dependencies = [tok.dep_.lower() for tok in doc]
+
+            return dependencies
+
 
         def get_distance_unidirectional(a:list, b:list)->float:
             '''
@@ -440,12 +453,14 @@ class BWMD():
                 distances = []
                 for word_b in b:
                     try:
-
-                        # TODO: Conditional to prevent attempting to load
+                        # Conditional to prevent attempting to load
                         # values from different clusters.
-
-                        # Get value from cache. Cache handles itself.
-                        distance = self.cache.get(word_a, word_b)
+                        if self.cache.key[word_a] == self.cache.key[word_b]:
+                            # Get value from cache. Cache handles itself.
+                            distance = self.cache.get(word_a, word_b)
+                        else:
+                            # Otherwise use default maximum value.
+                            distance = 1
                     except AttributeError:
                         # Means there is not cache ie we are using raw hamming.
                         distance = hamdist(self.vectors[word_a], self.vectors[word_b])
@@ -455,13 +470,11 @@ class BWMD():
 
                 distance = min(distances)
                 try:
-
-                    # TODO: Try get syntax info, if error assume that object is not
+                    # Try get syntax info, if error assume that object is not
                     # configured for getting syntex information.
-                    # TODO: Get a list of syntactic dependencies for a and b, respectively.
-
                     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
                     dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+                    # Weighted arithmetic mean.
                     wmd += 0.75*distance + 0.25*dependency_distance
                 except (TypeError, AttributeError):
                     wmd += distance

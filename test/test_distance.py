@@ -34,7 +34,7 @@ class TestCase(unittest.TestCase):
         for a small set of test sentences.
         '''
         # Initialize BWMD.
-        bwmd = BWMD('glove', '512', with_syntax=False, raw_hamming=True)
+        bwmd = BWMD('glove', '512', with_syntax=True, raw_hamming=True)
         # Sample texts for testing.
         text_a = 'Obama speaks to the media in Illinois .'
         text_b = 'The President greets the press in Chicago .'
@@ -53,6 +53,10 @@ class TestCase(unittest.TestCase):
         '''
         # TODO: Initialize BWMD.
         # TODO: Initialize corpus of texts.
+        text_a = 'Obama speaks to the media in Illinois .'
+        text_b = 'The President greets the press in Chicago .'
+        text_c = 'The man saw the woman'
+        text_d = 'The woman saw the man'
         # TODO: Compute pairwise distances for a
         # list of texts.
         # TODO: Evaluate the cache-removal policy.
