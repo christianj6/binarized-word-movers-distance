@@ -32,14 +32,12 @@ from bwmd.compressor import load_vectors
 from scipy.spatial import distance as distance_scipy
 from gmpy2 import hamdist, to_binary
 import time
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 import numpy as np
 import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-# Set random seed.
-random.seed(42)
 
 
 def convert_vectors_to_dict(vectors:list, words:list)->dict:
@@ -92,9 +90,9 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             Dictonary mapping tokens to their tables. Used for later
             access of table distances..
     '''
-    def kmeans(k:int)->dict:
+    def get_bisecting_partitions(k:int)->dict:
         '''
-        Bisecting K-means cluster algorithm for binary vectors. Uses
+        Bisecting partioning algorithm for binary vectors. Uses
         hamming distance instead of Euclidean distance.
 
         Parameters
@@ -111,143 +109,185 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             cache : dict
                 Precomputed values.
         '''
-        start = time.time()
-        # Create a cache of distances to remove repeated calculations.
-        cache = {}
-        vector_space = list(vectors.items())
-        # Store partitions in separate object which is updated.
-        partitions = [vector_space]
-        print('Clustering with bisecting kmeans ...')
-        while len(partitions) < k:
-            centroid_words = []
-            # Empty list to store new partitioning at each iteration.
-            new_partitions = []
-            # At each iteration, split each of the partitions.
-            for partition in partitions:
-                new_partition = []
-                centroids = random.sample(range(len(partition)), 2)
-                output = {centroid: [] for centroid in centroids}
-                # Assign all words to a partition.
-                for j, (word, vector) in enumerate(partition):
+        # List of partitions which will be iteratively bisected.
+        # Begin with the full vector space.
+        partitions = [list(vectors.items())]
+        # Make a list of token to global ids.
+        global_ids = {entry[0]:idx for idx,entry in enumerate(vectors.items())}
+        # List of centroids.
+        final_centroids = []
+        # Keep track of partition sizes to identify plateau as secondary condition
+        # to terminate the while loop.
+        # Dummy values so we don't start with an empty list.
+        length_of_partitions = [1, 3]
+        # Iterate until we reach the desired number of partitions.
+        # Second condition determines if last four items are the same,
+        # ie if a moderate 'convergence' is seen.
+        while len(partitions) < k and not length_of_partitions[-2:].count(length_of_partitions[-2]) == 2:
+            # Empty list for updated partitions at end of iteration.
+            updated_partitions = []
+            # Empty list storing the centroids as well, that these can
+            # be zipped with the partition tokens at the end.
+            iteration_centroids = []
+
+            for j, partition in enumerate(partitions):
+                # Map partition indices to tokens for retrieval.
+                id_to_token = {idx:entry[0] for idx,entry in enumerate(partition)}
+                # If the partition is already below a certain size, namely the
+                # length of the total vector space divided by the intended k,
+                # this partition is immediately added to the final set of partitions
+                # without subdividing it further. This method aims to
+                # achieve a standard size for the final groups, while also
+                # avoiding cases where a group which is divided unequally, produces
+                # a cluster so small that it cannot be subsampled effectively.
+                try:
+                    if len(partition) <= len(vectors) / k:
+                        # Add the partition.
+                        updated_partitions.append(partition)
+                        # Get centroid from previous iteration
+                        iteration_centroids.append(final_centroids[j])
+                        continue
+
+                    # Split into two partitions.
+                    # First establish two random centroids.
+                    initial_centroids = random.sample(range(len(partition)), 2)
+                    # Store the resulting partitions as centroids with assigned tokens.
+                    output = {centroid: [] for centroid in initial_centroids}
+
+                except ValueError:
+                    # If the cluster is too small to split, ignore it and store its data.
+                    # Add the partition.
+                    updated_partitions.append(partition)
+                    # Get centroid from previous iteration
+                    iteration_centroids.append(final_centroids[j])
+                    continue
+
+                # Reassign variable for readability.
+                centroids = initial_centroids
+                # Create final output for the iteration, grouping all tokens in current partition.
+                iteration_output = {centroid: [] for centroid in centroids}
+
+                # Assign all points from the original partition to
+                # either of the two identified centroids.
+                for idx in range(len(partition)):
+                    # Use the same minimum-distance methodology as before.
                     distances = []
                     for centroid in centroids:
                         try:
-                            # First try to find distance in cache.
-                            distance = cache[word][vector_space[centroid][0]]
+                            # Try to find value in cache.
+                            distance = cache[id_to_token[idx]][id_to_token[centroid]]
                         except KeyError:
-                            # Otherwise compute and store in cache.
-                            if vector_size == 300:
-                                distance = distance_scipy.cosine(vector, partition[centroid][1])
-                            else:
-                                distance = hamdist(vector, partition[centroid][1])
-
-                            cache[word] = {}
-                            cache[word][vector_space[centroid][0]] = distance
+                            # Otherwise compute distance.
+                            distance = hamdist(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
+                            # Store value in cache.
+                            cache[id_to_token[idx]][id_to_token[centroid]] = distance
+                            # Store reverse value too.
+                            cache[id_to_token[centroid]][id_to_token[idx]] = distance
 
                         distances.append(distance)
 
-                    # Closest centroid is the assignment for the token.
-                    cluster = centroids[distances.index(min(distances))]
-                    output[cluster].append(word)
+                    # Minimum value determines assignment.
+                    assignment = centroids[distances.index(min(distances))]
+                    # Update the outputs and token lookup dict.
+                    iteration_output[assignment].append(idx)
+                    # token_to_centroid[id_to_token[idx]] = assignment
 
-                # Update the lists.
-                both_clusters = [cluster_id for cluster_id, words in list(output.items()).copy()]
-                a, b = both_clusters[0], both_clusters[1]
-                new_partition.append([(word, vectors[word]) for word in output[a]])
-                new_partition.append([(word, vectors[word]) for word in output[b]])
-                centroid_words.append(partition[a][0])
-                centroid_words.append(partition[b][0])
+                # Parse outputs into two new partitions which are added to an
+                # updated partitioning for future bisections.
+                updated_partitions.extend([[(id_to_token[idx], vectors[id_to_token[idx]]) for idx in indices] for centroid, indices in iteration_output.items()])
+                # Add the centroids to the list used to construct the final output.
+                iteration_centroids.extend([global_ids[id_to_token[centroid]] for centroid in list(iteration_output.keys())])
 
-                # Add the updated partitioning.
-                new_partitions += new_partition
+            # Update the partitions and centroids.
+            partitions = updated_partitions
+            length_of_partitions.append(len(partitions))
+            final_centroids = iteration_centroids
 
-            # Update partitions.
-            partitions = new_partitions
-
-        # List the centroids as initialization for kmeans clustering.
-        centroids = [list(vectors.keys()).index(word) for word in centroid_words]
-
-        # Create a reverse-mapping of tokens to clusters used to access the
-        # computed tables via later caching policy.
-        token_to_centroid = {token: centroid for partition, centroid in zip(partitions, centroids)
-                                for token, vector in partition}
-        # Format output.
-        output = zip(centroids, [[word for word, vector in partition] for partition in partitions])
-        output = dict(output)
-
-        # for centroid, tokens in zip(centroid_words, partitions):
-        #     print(centroid.upper())
-        #     print([token for token, vector in tokens])
-        #     print('\n\n')
-
-        end = time.time()
-        print('Time to cluster: ', str(round(end - start, 3)))
+        id_to_token = {idx: entry[0] for idx,entry in enumerate(vectors.items())}
+        # Update the list and dict to use just the tokens because it's easier for later retrieval.
+        final_centroids = [id_to_token[idx] for idx in final_centroids]
+        # When loop terminates, construct the output from the partitions.
+        output = dict(zip(final_centroids, [[token for token, code in partition] for partition in partitions]))
+        # Token to centroid mapping
+        token_to_centroid = {token: centroid for centroid, tokens in output.items() for token in tokens}
 
         return output, token_to_centroid
 
-    def build_lookup_table(cluster:tuple, real_value_vectors:dict)->dict:
-        '''
-        Constructs a hamming distance lookup table for a given
-        dict entry produced by the kmeans method.
-
-        Parameters
-        ---------
-            cluster : tuple
-                Cluster id, [list of words]
-            real_value_vectors : dict
-                Dictonary of real-valued vectors for
-                computing the cosine distance of paired words.
-
-        Returns
-        ---------
-            table : dict
-                Word-to-word mapping with hamming
-                distances.
-        '''
-        table = {}
-        idx, words, = cluster
-        for word_1 in words:
-            table[word_1] = {}
-            for word_2 in words:
-                # Get cosine distance with real-value vectors.
-                distance = distance_scipy.cosine(real_value_vectors[word_1],
-                                    real_value_vectors[word_2])
-                table[word_1][word_2] = distance
-
-        return table
-
-    # Determine optimal k-value based
-    # on total number of desired clusters.
+    # Convert I to k value.
     k = 2**I
-    print('Making partition: ', str(k))
-    # TODO: Estimate required memory.
-    # mem = (((len(vectors) / k)**2 * 12) * k) / 1073741274
-    # print(f'Estimated to require {round(mem, 2)} GB.')
-    # Perform k-means clustering on the data.
-    ids, token_to_centroid = kmeans(k)
+    # Create a cache of distances to remove repeated calculations.
+    cache = {}
+    for token in list(vectors.keys()):
+        cache[token] = {}
 
-    # Store the reverse mapping for indexing the tables.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
-        dill.dump(token_to_centroid, f)
+    print('Making 100 partitionings of size', str(k))
+    start = time.time()
+    # Perform partitioning on the data.
+    iteration_results = []
+    for i in tqdm(range(100)):
+        # Store the outputs and token mappings for each iteration.
+        iteration_results.append(get_bisecting_partitions(k))
 
-    # Store the output for constructing the tables.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_ids", 'wb') as f:
-        dill.dump(ids, f)
+    end = time.time()
+    print('Time to compute partitionings: ', str(round(end - start, 3)))
+    start = time.time()
 
-    # Build lookup tables based on ids.
+    # Get the raw vectors. This will be used to organize
+    # the associated tokens according to the more-reliable
+    # cosine distances.
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
     real_value_vectors, words = load_vectors(raw_vectors,
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
-    start = time.time()
-    # Compute and store a table for each cluster.
-    for cluster in ids.items():
-        table = build_lookup_table(cluster, real_value_vectors)
+
+    # Create a key used to govern the cache policy.
+    token_association_key = {}
+    for token, vector in tqdm(real_value_vectors.items()):
+        # Store all words associated with the current token.
+        all_words_associated_with_current_token = []
+        for centroid_to_tokens, token_to_centroid in iteration_results:
+            # Use the two partitioning dictionaries to access only
+            # those clusters affiliated with the current token.
+            for associated_word in centroid_to_tokens[token_to_centroid[token]]:
+                all_words_associated_with_current_token.append(associated_word)
+
+        words_most_associated_with_current_token = []
+        # Reduce the total size of the words to save on the cosine
+        # distance computations. The heuristic is that if a token
+        # occurs more than 3 times, it may be related.
+        for word, count in Counter(all_words_associated_with_current_token).items():
+            if count > 3:
+                words_most_associated_with_current_token.append(word)
+
+        # Compute and save the cosine distances for the output tables.
+        words = list(map(lambda x: (x, distance_scipy.cosine(real_value_vectors[token],
+                            real_value_vectors[x])), words_most_associated_with_current_token))
+        # Retrieve the original token and first 20 tokens.
+        words = sorted(words, key=lambda x: x[1])[:21]
+        # Organize a lookup table for these distances.
+        table = {word: distance for word, distance in words}
         if save:
-            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
-                dill.dump(table, f)
+            try:
+                # Try to dump the table to a file. Since the files
+                # are so small we can make a lot of them with little cost.
+                with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_table", 'wb') as f:
+                    dill.dump(table, f)
+
+                # If successfully dumped, add an entry to the key
+                # governing the cache policy.
+                token_association_key[token] = [word for word, _ in words]
+            except OSError:
+                # Some file names (mostly punctuation) are invalid file names. We could
+                # map all the tokens to an integer, but since punctuation are
+                # irrelevant to the final distance computation anyhow, it is okay to
+                # just skip these files and rather have a neater token-wise retrieval.
+                continue
+
+    # Save the key mapping all tokens to associated words.
+    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+        dill.dump(token_association_key, f)
 
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
@@ -311,13 +351,13 @@ class BWMD():
             table = self.key[word_1]
             try:
                 # First try to get the value.
-                return self.cache[table][word_1][word_2]
+                return self.cache[table][word_2]
             except KeyError:
                 try:
                     # If unavailable, load the necessary table.
                     self.load(table)
                     # Try to return the relevant value.
-                    return self.cache[table][word_1][word_2]
+                    return self.cache[table][word_2]
                 except KeyError:
                     # If the two points are in different clusters,
                     # return default maximum value.
@@ -367,7 +407,7 @@ class BWMD():
         if not raw_hamming:
             with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
                 # Create cache from lookup tables.
-                self.cache = self.LRUCache(15, dill.load(f), model, dim)
+                self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
         else:
             # Load the raw binary vectors.
@@ -459,18 +499,21 @@ class BWMD():
                 for word_b in b:
                     if word_b in sw:
                         # Skip stopwords.
-                        pass
+                        continue
                     try:
-                        # Conditional to prevent attempting to load
-                        # values from different clusters.
-                        if self.cache.key[word_a] == self.cache.key[word_b]:
-                            # Get value from cache. Cache handles itself.
+                        # Check if either of the words is in the other's table; if
+                        # so, then we just look it up accordingly.
+                        if word_b in self.cache.key[word_a]:
                             distance = self.cache.get(word_a, word_b)
+                        elif word_a in self.cache.key[word_b]:
+                            distance = self.cache.get(word_b, word_a)
                         else:
-                            # Otherwise use default maximum value.
-                            distance = 1
-                    except AttributeError:
-                        # Means there is not cache ie we are using raw hamming.
+                            # Otherwise use hamming distance
+                            distance = hamdist(self.vectors[word_a], self.vectors[word_b])
+
+                    except (AttributeError, KeyError):
+                        # Means there is no cache ie we are using raw hamming.
+                        # Also if the word is not represented in the vocabulary.
                         distance = hamdist(self.vectors[word_a], self.vectors[word_b])
 
                     # Divide by dimension to normalize score.

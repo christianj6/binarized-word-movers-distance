@@ -64,7 +64,6 @@ class TestCase(unittest.TestCase):
         # Compute pairwise distances.
         matrix = bwmd.pairwise(corpus)
         print(matrix)
-        # TODO: Evaluate the cache-removal policy.
 
 
 def compute_all_lookup_tables():
@@ -92,8 +91,11 @@ def compute_all_lookup_tables():
         vectors = convert_vectors_to_dict(vectors, words)
         tables = build_kmeans_lookup_tables(
                 vectors,
-                I=5,
+                I=14,
                 path=vector,
                 vector_size=dim
             )
 
+
+if __name__ == '__main__':
+    compute_all_lookup_tables()
