@@ -407,7 +407,7 @@ class BWMD():
         if not raw_hamming:
             with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
                 # Create cache from lookup tables.
-                self.cache = self.LRUCache(15, dill.load(f), model, dim)
+                self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
         else:
             # Load the raw binary vectors.
