@@ -131,7 +131,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         # Second condition determines if last four items are the same,
         # ie if a moderate 'convergence' is seen.
         while len(partitions) < k and not length_of_partitions[-2:].count(length_of_partitions[-2]) == 2:
-            # print(len(partitions))
             # Empty list for updated partitions at end of iteration.
             updated_partitions = []
             # Empty list storing the centroids as well, that these can
@@ -147,291 +146,28 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                 # achieve a standard size for the final groups, while also
                 # avoiding cases where a group which is divided unequally, produces
                 # a cluster so small that it cannot be subsampled effectively.
-
                 try:
-
                     if len(partition) <= len(vectors) / k:
-                        # print('skipping small')
                         # Add the partition.
                         updated_partitions.append(partition)
-
-                        # TODO: Get centroid from previous iteration
+                        # Get centroid from previous iteration
                         iteration_centroids.append(final_centroids[j])
-
-
-                        # subsample_size = round(math.sqrt(len(partition)))
-                        # # Default value to prevent the subsample size from getting too low.
-                        # subsample_size = len(partition) if subsample_size < 10 else subsample_size
-                        # # print(subsample_size)
-                        # subsample = random.sample(range(len(partition)), subsample_size)
-
-                        # for idx in subsample:
-                        #     # Store average distances to other points to identify best centroid.
-                        #     avg_distances = []
-                        #     # Iterate through all points to compare distances.
-                        #     for id_1 in subsample:
-                        #         # Store pairwise distances.
-                        #         distances = []
-                        #         for id_2 in subsample:
-                        #             try:
-                        #                 # Try to get distance from cache.
-                        #                 distance = cache[id_to_token[id_1]][id_to_token[id_2]]
-                        #             except KeyError:
-                        #                 # Otherwise compute hamming distance.
-                        #                 distance = hamdist(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                        #                 # distance = distance_scipy.cosine(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                        #                 # Store in the cache.
-                        #                 cache[id_to_token[id_1]][id_to_token[id_2]] = distance
-
-                        #             distances.append(distance)
-
-                        #         # Average the distances to other points.
-                        #         avg_distance = sum(distances) / len(distances)
-                        #         avg_distances.append(avg_distance)
-
-                        #     # The point with the lowest average distance is made the new centroid.
-                        #     min_avg_distances_id = subsample[avg_distances.index(min(avg_distances))]
-                        #     # Convert this to a global id.
-                        #     iteration_centroids.append(global_ids[id_to_token[min_avg_distances_id]])
-
                         continue
-
-
-
 
                     # Split into two partitions.
                     # First establish two random centroids.
-                    # Attempt to find a pair of centroids at a maximum distance, assuming
-                    # that this will be an advantageous bipartition of the space,
-                    # given that we require only two partitions.
-
-                    # removing this optimization for speed#######################################
-
-                    # possible_centroids = []
-                    # # # distances_of_possible_centroids = []
-                    # for i in range(len(partition)):
-
-
-
-
-
-                    # # for i in range(5):
-
-                    #     initial_centroids = random.sample(range(len(partition)), 2)
-                    #     possible_centroids.append(initial_centroids)
-                    #     # distances_of_possible_centroids.append(hamdist(vectors[id_to_token[initial_centroids[0]]], vectors[id_to_token[initial_centroids[1]]]))
-
-                    # # print(sorted(distances_of_possible_centroids, reverse=True)[0])
-
-
-                    # # TODO: Choose one centroid then get second at maximal distance from this point.
-
-
-                    # initial_centroids = list(sorted(possible_centroids, key=lambda x: hamdist(vectors[id_to_token[x[0]]], vectors[id_to_token[x[1]]]), reverse=True))[0]
-                    # # initial_centroids = list(sorted(possible_centroids, key=lambda x: distance_scipy.cosine(vectors[id_to_token[x[0]]], vectors[id_to_token[x[1]]]), reverse=True))[0]
-
-                    # initial_centroids = list(initial_centroids)
-
-
                     initial_centroids = random.sample(range(len(partition)), 2)
-                    ##########################
-
-
                     # Store the resulting partitions as centroids with assigned tokens.
                     output = {centroid: [] for centroid in initial_centroids}
 
-
-                    ###################################
-                    # remove for speed
-                    #################################
-
-
-                    # # Get a random subsample of the full partition space, so as
-                    # # to speed up computation.
-                    # subsample_size = round(math.sqrt(len(partition)))
-                    # # Default value to prevent the subsample size from getting too low.
-                    # subsample_size = len(partition) if subsample_size < 10 else subsample_size
-                    # # print(subsample_size)
-                    # subsample = random.sample(range(len(partition)), subsample_size)
-
-
-
-
-
-                    # # Store the results of the two means clustering in a list to identify
-                    # # the defined convergence point.
-                    # # Initialize it with arbitrary value so that the while loop
-                    # # works as intended.
-                    # differences = [-1]
-                    # # Perform two means clustering, iterating until
-                    # # the difference between the number of points in each
-                    # # cluster reaches a minimum, indicating that the two
-                    # # groups are of approximately equal size.
-                    # while abs(len(output[initial_centroids[0]]) - len(output[initial_centroids[1]])) > differences[-1]:
-                    #     # Append the distance governing the while loop. We must
-                    #     # compute it again because we use Python 3.7 and do not have
-                    #     # access to assignment experssions cf. PEP 572.
-                    #     differences.append(abs(len(output[initial_centroids[0]]) - len(output[initial_centroids[1]])))
-
-                    #     # print(differences)
-
-                    #     # Iterate through values in subsample and assign to centroid.
-                    #     for subsample_id in subsample:
-                    #         distances = []
-                    #         for centroid in initial_centroids:
-                    #             try:
-                    #                 # Try to get distance from cache.
-                    #                 distance = cache[id_to_token[subsample_id]][id_to_token[centroid]]
-                    #             except KeyError:
-                    #                 # Otherwise compute hamming distance.
-                    #                 distance = hamdist(vectors[id_to_token[subsample_id]], vectors[id_to_token[centroid]])
-
-                    #                 # distance = distance_scipy.cosine(vectors[id_to_token[subsample_id]], vectors[id_to_token[centroid]])
-
-                    #                 # Store in the cache.
-                    #                 cache[id_to_token[subsample_id]][id_to_token[centroid]] = distance
-
-                    #             distances.append(distance)
-
-                    #         # Minimum value indicates the nearest centroid.
-                    #         assignment = initial_centroids[distances.index(min(distances))]
-                    #         # Assign the point to the appropriate centroid.
-                    #         output[assignment].append(subsample_id)
-
-                    #     # New outputs dict to store the updated centroids.
-                    #     updated_centroids = []
-                    #     updated_output = {}
-                    #     # Identify the mean point in the assigned clusters.
-                    #     for _, assigned_subsample_ids in output.items():
-                    #         # Store average distances to other points to identify best centroid.
-                    #         avg_distances = []
-                    #         # Iterate through all points to compare distances.
-                    #         for id_1 in assigned_subsample_ids:
-                    #             # Store pairwise distances.
-                    #             distances = []
-                    #             for id_2 in assigned_subsample_ids:
-                    #                 try:
-                    #                     # Try to get distance from cache.
-                    #                     distance = cache[id_to_token[id_1]][id_to_token[id_2]]
-                    #                 except KeyError:
-                    #                     # Otherwise compute hamming distance.
-                    #                     distance = hamdist(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                    #                     # distance = distance_scipy.cosine(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                    #                     # Store in the cache.
-                    #                     cache[id_to_token[id_1]][id_to_token[id_2]] = distance
-
-                    #                 distances.append(distance)
-
-                    #             # Average the distances to other points.
-                    #             avg_distance = sum(distances) / len(distances)
-                    #             avg_distances.append(avg_distance)
-                    #             # print(avg_distances)
-
-                    #         # The point with the lowest average distance is made the new centroid.
-                    #         min_avg_distances_id = assigned_subsample_ids[avg_distances.index(min(avg_distances))]
-                    #         # Establish this point as the new centroid, updating the output dict.
-                    #         updated_output[min_avg_distances_id] = []
-                    #         updated_centroids.append(min_avg_distances_id)
-
-                    #     # Recluster the subsample by the adjusted centroids.
-                    #     for subsample_id in subsample:
-                    #         distances = []
-                    #         for centroid in updated_centroids:
-                    #             try:
-                    #                 # Try to get distance from cache.
-                    #                 distance = cache[id_to_token[subsample_id]][id_to_token[centroid]]
-                    #             except KeyError:
-                    #                 # Otherwise compute hamming distance.
-                    #                 distance = hamdist(vectors[id_to_token[subsample_id]], vectors[id_to_token[centroid]])
-
-                    #                 # distance = distance_scipy.cosine(vectors[id_to_token[subsample_id]], vectors[id_to_token[centroid]])
-
-                    #                 # Store in the cache.
-                    #                 cache[id_to_token[subsample_id]][id_to_token[centroid]] = distance
-
-                    #             distances.append(distance)
-
-                    #         # print(cache)
-                    #         # print(distances)
-
-                    #         # Minimum value indicates the nearest centroid.
-                    #         assignment = updated_centroids[distances.index(min(distances))]
-                    #         # Assign the point to the appropriate centroid.
-                    #         updated_output[assignment].append(subsample_id)
-
-                    #     # Update the output and centroid list to reflect the new grouping.
-                    #     output = updated_output
-                    #     initial_centroids = updated_centroids
-                    #     # At the beginning of the next loop, the new grouping will be compared with that
-                    #     # from the previous iteration, if this update is improved according to the
-                    #     # equalizing convergence principal, the loop will terminate.
-                    #     # print(differences)
-
-                # ###################################
-                # # remove for speed
-                # #################################
-
-
                 except ValueError:
                     # If the cluster is too small to split, ignore it and store its data.
-                    # print('we skipping error')
                     # Add the partition.
                     updated_partitions.append(partition)
-                    # TODO: Add an approximate centroid.
-
-                    # TODO: Get centroid from previous iteration
+                    # Get centroid from previous iteration
                     iteration_centroids.append(final_centroids[j])
-
-
-                    # subsample_size = round(math.sqrt(len(partition)))
-                    # # Default value to prevent the subsample size from getting too low.
-                    # subsample_size = len(partition) if subsample_size < 10 else subsample_size
-                    # # print(subsample_size)
-                    # subsample = random.sample(range(len(partition)), subsample_size)
-
-                    # for idx in subsample:
-                    #     # Store average distances to other points to identify best centroid.
-                    #     avg_distances = []
-                    #     # Iterate through all points to compare distances.
-                    #     for id_1 in subsample:
-                    #         # Store pairwise distances.
-                    #         distances = []
-                    #         for id_2 in subsample:
-                    #             try:
-                    #                 # Try to get distance from cache.
-                    #                 distance = cache[id_to_token[id_1]][id_to_token[id_2]]
-                    #             except KeyError:
-                    #                 # Otherwise compute hamming distance.
-                    #                 distance = hamdist(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                    #                 # distance = distance_scipy.cosine(vectors[id_to_token[id_1]], vectors[id_to_token[id_2]])
-
-                    #                 # Store in the cache.
-                    #                 cache[id_to_token[id_1]][id_to_token[id_2]] = distance
-
-                    #             distances.append(distance)
-
-                    #         # Average the distances to other points.
-                    #         avg_distance = sum(distances) / len(distances)
-                    #         avg_distances.append(avg_distance)
-                    #         # print(avg_distances)
-
-                    #     # The point with the lowest average distance is made the new centroid.
-                    #     min_avg_distances_id = subsample[avg_distances.index(min(avg_distances))]
-                    #     # Convert this to a global id.
-                    #     iteration_centroids.append(global_ids[id_to_token[min_avg_distances_id]])
-
                     continue
 
-
-
-
-
-                # print(differences)
                 # Reassign variable for readability.
                 centroids = initial_centroids
                 # Create final output for the iteration, grouping all tokens in current partition.
@@ -450,16 +186,10 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                         except KeyError:
                             # Otherwise compute distance.
                             distance = hamdist(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
-
-                            # distance = distance_scipy.cosine(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
-
                             # Store value in cache.
                             cache[id_to_token[idx]][id_to_token[centroid]] = distance
 
                         distances.append(distance)
-
-                    # print(distances)
-                    # exit()
 
                     # Minimum value determines assignment.
                     assignment = centroids[distances.index(min(distances))]
@@ -467,13 +197,8 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                     iteration_output[assignment].append(idx)
                     token_to_centroid[id_to_token[idx]] = assignment
 
-
-                # TODO: Assertions to ensure everything is the same size.
-
-
                 # Parse outputs into two new partitions which are added to an
                 # updated partitioning for future bisections.
-                # print(len([[(id_to_token[idx], vectors[id_to_token[idx]]) for idx in indices] for centroid, indices in iteration_output.items()]))
                 updated_partitions.extend([[(id_to_token[idx], vectors[id_to_token[idx]]) for idx in indices] for centroid, indices in iteration_output.items()])
                 # Add the centroids to the list used to construct the final output.
                 iteration_centroids.extend([global_ids[id_to_token[centroid]] for centroid in list(iteration_output.keys())])
@@ -483,46 +208,14 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             length_of_partitions.append(len(partitions))
             final_centroids = iteration_centroids
 
-        # Loading raw vectors.
-        # Build lookup tables based on ids.
-        # raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
-        # # Load real-valued vectors.
-        # real_value_vectors, words = load_vectors(raw_vectors,
+###############################################################
 
-        #                             size=2000,
-
-        #                             expected_dimensions=300,
-        #                             expected_dtype='float32', get_words=True)
-        # real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
-
-        # id_to_vector = {idx:entry[1] for idx,entry in enumerate(real_value_vectors.items())}
-
-        # print('Assigning real-valued vectors to centroids ... ')
-        # print('\n\n')
-        # assignment_of_real_value_vectors = {}
-        # for centroid in final_centroids:
-        #     assignment_of_real_value_vectors[centroid] = []
-        # for token, vector in real_value_vectors.items():
-        #         distances = []
-        #         for centroid in final_centroids:
-        #             distance = distance_scipy.cosine(id_to_vector[centroid], vector)
-        #             distances.append(distance)
-
-        #         assignment_of_current_token = final_centroids[distances.index(min(distances))]
-        #         assignment_of_real_value_vectors[centroid].append(token)
-
-        # for centroid, tokens in assignment_of_real_value_vectors.items():
-        #     print(tokens)
-        #     print('\n\n')
-
-        # print('\n\n')
         id_to_code = {idx:entry[1] for idx,entry in enumerate(vectors.items())}
         for centroid, tokens in zip(final_centroids, partitions):
             tokens = sorted(tokens, key=lambda x: hamdist(x[1], id_to_code[centroid]))
             # print(len([token for token, vector in tokens]))
             if 'car' in [token for token,vector in tokens]:
                 return [token for token, vector in tokens]
-            # print('\n\n')
 
         # When loop terminates, construct the output from the partitions.
         output = dict(zip(final_centroids, [[token for token, code in partition] for partition in partitions]))
@@ -531,6 +224,9 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         print('Time to cluster: ', str(round(end - start, 3)))
 
         return output, token_to_centroid
+
+###############################################################
+
 
     def build_lookup_table(cluster:tuple, real_value_vectors:dict)->dict:
         '''
@@ -565,7 +261,10 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
     # Convert I to k value.
     k = 2**I
-    print('Making partition: ', str(k))
+
+###############################################################
+
+    print('Making partitionings: ', str(k))
     # Perform k-means clustering on the data.
     sets_of_groupings = []
     for i in tqdm(range(100)):
@@ -590,7 +289,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
 
 
-
+###############################################################
 
 
 
@@ -610,6 +309,10 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     print('\n\n')
 
     exit()
+
+
+###############################################################
+
 
     # Store the reverse mapping for indexing the tables.
     with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
@@ -633,6 +336,10 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         if save:
             with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
                 dill.dump(table, f)
+
+
+###############################################################
+
 
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
