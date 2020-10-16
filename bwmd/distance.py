@@ -353,13 +353,13 @@ class BWMD():
             table = self.key[word_1]
             try:
                 # First try to get the value.
-                return self.cache[table][word_1][word_2]
+                return self.cache[table][word_2]
             except KeyError:
                 try:
                     # If unavailable, load the necessary table.
                     self.load(table)
                     # Try to return the relevant value.
-                    return self.cache[table][word_1][word_2]
+                    return self.cache[table][word_2]
                 except KeyError:
                     # If the two points are in different clusters,
                     # return default maximum value.
@@ -410,20 +410,6 @@ class BWMD():
             with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
                 # Create cache from lookup tables.
                 self.cache = self.LRUCache(15, dill.load(f), model, dim)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         else:
             # Load the raw binary vectors.
@@ -515,16 +501,18 @@ class BWMD():
                 for word_b in b:
                     if word_b in sw:
                         # Skip stopwords.
-                        pass
+                        continue
                     try:
-                        # Conditional to prevent attempting to load
-                        # values from different clusters.
-                        if self.cache.key[word_a] == self.cache.key[word_b]:
-                            # Get value from cache. Cache handles itself.
+                        # Check if either of the words is in the other's table; if
+                        # so, then we just look it up accordingly.
+                        if word_b in self.cache.key[word_a]:
                             distance = self.cache.get(word_a, word_b)
+                        elif word_a in self.cache.key[word_b]:
+                            distance = self.cache.get(word_b, word_a)
                         else:
-                            # Otherwise use default maximum value.
-                            distance = 1
+                            # Otherwise use hamming distance
+                            distance = hamdist(self.vectors[word_a], self.vectors[word_b])
+
                     except AttributeError:
                         # Means there is not cache ie we are using raw hamming.
                         distance = hamdist(self.vectors[word_a], self.vectors[word_b])
