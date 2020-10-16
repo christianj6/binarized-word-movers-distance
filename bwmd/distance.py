@@ -32,7 +32,7 @@ from bwmd.compressor import load_vectors
 from scipy.spatial import distance as distance_scipy
 from gmpy2 import hamdist, to_binary
 import time
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 import numpy as np
 import spacy
 from spacy.tokens import Doc
@@ -92,9 +92,9 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             Dictonary mapping tokens to their tables. Used for later
             access of table distances..
     '''
-    def kmeans(k:int)->dict:
+    def get_bisecting_partitions(k:int)->dict:
         '''
-        Bisecting K-means cluster algorithm for binary vectors. Uses
+        Bisecting partioning algorithm for binary vectors. Uses
         hamming distance instead of Euclidean distance.
 
         Parameters
@@ -111,11 +111,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             cache : dict
                 Precomputed values.
         '''
-        start = time.time()
-        # Create a cache of distances to remove repeated calculations.
-        cache = {}
-        for token in list(vectors.keys()):
-            cache[token] = {}
+        # start = time.time()
         # List of partitions which will be iteratively bisected.
         # Begin with the full vector space.
         partitions = [list(vectors.items())]
@@ -188,6 +184,8 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                             distance = hamdist(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
                             # Store value in cache.
                             cache[id_to_token[idx]][id_to_token[centroid]] = distance
+                            # Store reverse value too.
+                            cache[id_to_token[centroid]][id_to_token[idx]] = distance
 
                         distances.append(distance)
 
@@ -210,18 +208,18 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
 ###############################################################
 
-        id_to_code = {idx:entry[1] for idx,entry in enumerate(vectors.items())}
-        for centroid, tokens in zip(final_centroids, partitions):
-            tokens = sorted(tokens, key=lambda x: hamdist(x[1], id_to_code[centroid]))
-            # print(len([token for token, vector in tokens]))
-            if 'car' in [token for token,vector in tokens]:
-                return [token for token, vector in tokens]
+        # id_to_code = {idx:entry[1] for idx,entry in enumerate(vectors.items())}
+        # for centroid, tokens in zip(final_centroids, partitions):
+        #     tokens = sorted(tokens, key=lambda x: hamdist(x[1], id_to_code[centroid]))
+        #     # print(len([token for token, vector in tokens]))
+        #     if 'car' in [token for token,vector in tokens]:
+        #         return [token for token, vector in tokens]
 
         # When loop terminates, construct the output from the partitions.
         output = dict(zip(final_centroids, [[token for token, code in partition] for partition in partitions]))
 
-        end = time.time()
-        print('Time to cluster: ', str(round(end - start, 3)))
+        # end = time.time()
+        # print('Time to cluster: ', str(round(end - start, 3)))
 
         return output, token_to_centroid
 
@@ -263,17 +261,18 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     k = 2**I
 
 ###############################################################
+    # Create a cache of distances to remove repeated calculations.
+    cache = {}
+    for token in list(vectors.keys()):
+        cache[token] = {}
 
-    print('Making partitionings: ', str(k))
-    # Perform k-means clustering on the data.
-    sets_of_groupings = []
+    print('Making 100 partitionings: ', str(k))
+    # Perform partitioning on the data.
+    iteration_results = []
     for i in tqdm(range(100)):
-        # ids, token_to_centroid = kmeans(k)
-        sets_of_groupings.append(kmeans(k))
-
-
-
-
+        # centroid_to_tokens, token_to_centroid = get_bisecting_partitions(k)
+        iteration_results.append(get_bisecting_partitions(k))
+        # sets_of_groupings.append(get_bisecting_partitions(k))
 
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
@@ -285,7 +284,39 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
 
-    id_to_vector = {idx:entry[1] for idx,entry in enumerate(real_value_vectors.items())}
+    # id_to_vector = {idx:entry[1] for idx,entry in enumerate(real_value_vectors.items())}
+
+    token_association_key = {}
+
+    for token, vector in real_value_vectors.items():
+        all_words_associated_with_current_token = []
+        for centroid_to_tokens, token_to_centroid in iteration_results:
+            for associated_word in centroid_to_tokens[token_to_centroid[token]]:
+                all_words_associated_with_current_token.add(associated_word)
+
+        words_most_associated_with_current_token = []
+        for word, count in Counter(all_words_associated_with_current_token).items():
+            if count > 3:
+                words_most_associated_with_current_token.append(word)
+
+        # Compute and save the cosine distances for the output tables.
+        words = list(map(lambda x: (x, distance_scipy.cosine(real_value_vectors[token],
+                            real_value_vectors[x], words_most_associated_with_current_token))))
+        words = sorted(words, key=lambda x: x[1])[:21]
+
+        # TODO: store table for individual token
+        # TODO: store key telling which tokens can be found together
+        token_association_key[token] = []
+
+
+        # top_associated_words_according_to_cosine_distance = \
+        #     sorted(words_most_associated_with_current_token,
+        #         key=lambda x: distance_scipy.cosine(real_value_vectors[token],
+        #             real_value_vectors[x]))[:21]
+
+
+
+
 
 
 
@@ -294,19 +325,19 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
 
 
-    potential_tokens = list(set([token for s in sets_of_groupings for token in s]))
-    token_scores = []
-    for token in potential_tokens:
-        n = 0
-        for set_groups in sets_of_groupings:
-            if token in set_groups:
-                n+=1
-        token_scores.append(n)
+    # potential_tokens = list(set([token for s in sets_of_groupings for token in s]))
+    # token_scores = []
+    # for token in potential_tokens:
+    #     n = 0
+    #     for set_groups in sets_of_groupings:
+    #         if token in set_groups:
+    #             n+=1
+    #     token_scores.append(n)
 
-    scored_tokens = zip(potential_tokens, token_scores)
-    print([tok for tok in sorted(scored_tokens, key=lambda x: distance_scipy.cosine(real_value_vectors['apple'], real_value_vectors[x[0]])) if tok[1] > 2][1:20])
+    # scored_tokens = zip(potential_tokens, token_scores)
+    # print([tok for tok in sorted(scored_tokens, key=lambda x: distance_scipy.cosine(real_value_vectors['apple'], real_value_vectors[x[0]])) if tok[1] > 2][1:20])
 
-    print('\n\n')
+    # print('\n\n')
 
     exit()
 
@@ -314,21 +345,21 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 ###############################################################
 
 
-    # Store the reverse mapping for indexing the tables.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
-        dill.dump(token_to_centroid, f)
+    # # Store the reverse mapping for indexing the tables.
+    # with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+    #     dill.dump(token_to_centroid, f)
 
-    # Store the output for constructing the tables.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_ids", 'wb') as f:
-        dill.dump(ids, f)
+    # # Store the output for constructing the tables.
+    # with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_ids", 'wb') as f:
+    #     dill.dump(ids, f)
 
-    # Build lookup tables based on ids.
-    raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
-    # Load real-valued vectors.
-    real_value_vectors, words = load_vectors(raw_vectors,
-                                expected_dimensions=300,
-                                expected_dtype='float32', get_words=True)
-    real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
+    # # Build lookup tables based on ids.
+    # raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
+    # # Load real-valued vectors.
+    # real_value_vectors, words = load_vectors(raw_vectors,
+    #                             expected_dimensions=300,
+    #                             expected_dtype='float32', get_words=True)
+    # real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
     start = time.time()
     # Compute and store a table for each cluster.
     for cluster in ids.items():
