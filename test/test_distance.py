@@ -85,9 +85,6 @@ def compute_all_lookup_tables():
         vector = f"res\\{vector}.txtc"
         vectors, words = load_vectors(
                 vector,
-
-                size=200000,     # adjust
-
                 expected_dimensions=int(dim),
                 expected_dtype=COMPRESSION,
                 get_words=True
@@ -95,9 +92,7 @@ def compute_all_lookup_tables():
         vectors = convert_vectors_to_dict(vectors, words)
         tables = build_kmeans_lookup_tables(
                 vectors,
-
-                I=9,            # adjust
-
+                I=14,
                 path=vector,
                 vector_size=dim
             )

@@ -111,7 +111,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             cache : dict
                 Precomputed values.
         '''
-        # start = time.time()
         # List of partitions which will be iteratively bisected.
         # Begin with the full vector space.
         partitions = [list(vectors.items())]
@@ -132,6 +131,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             # Empty list storing the centroids as well, that these can
             # be zipped with the partition tokens at the end.
             iteration_centroids = []
+
             for j, partition in enumerate(partitions):
                 # Map partition indices to tokens for retrieval.
                 id_to_token = {idx:entry[0] for idx,entry in enumerate(partition)}
@@ -168,8 +168,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                 centroids = initial_centroids
                 # Create final output for the iteration, grouping all tokens in current partition.
                 iteration_output = {centroid: [] for centroid in centroids}
-                # Also create a reverse mapping of token to centroid, used in later lookups.
-                token_to_centroid = {}
+
                 # Assign all points from the original partition to
                 # either of the two identified centroids.
                 for idx in range(len(partition)):
@@ -193,7 +192,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                     assignment = centroids[distances.index(min(distances))]
                     # Update the outputs and token lookup dict.
                     iteration_output[assignment].append(idx)
-                    token_to_centroid[id_to_token[idx]] = assignment
+                    # token_to_centroid[id_to_token[idx]] = assignment
 
                 # Parse outputs into two new partitions which are added to an
                 # updated partitioning for future bisections.
@@ -206,171 +205,91 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             length_of_partitions.append(len(partitions))
             final_centroids = iteration_centroids
 
-###############################################################
-
-        # id_to_code = {idx:entry[1] for idx,entry in enumerate(vectors.items())}
-        # for centroid, tokens in zip(final_centroids, partitions):
-        #     tokens = sorted(tokens, key=lambda x: hamdist(x[1], id_to_code[centroid]))
-        #     # print(len([token for token, vector in tokens]))
-        #     if 'car' in [token for token,vector in tokens]:
-        #         return [token for token, vector in tokens]
-
+        id_to_token = {idx: entry[0] for idx,entry in enumerate(vectors.items())}
+        # Update the list and dict to use just the tokens because it's easier for later retrieval.
+        final_centroids = [id_to_token[idx] for idx in final_centroids]
         # When loop terminates, construct the output from the partitions.
         output = dict(zip(final_centroids, [[token for token, code in partition] for partition in partitions]))
-
-        # end = time.time()
-        # print('Time to cluster: ', str(round(end - start, 3)))
+        # Token to centroid mapping
+        token_to_centroid = {token: centroid for centroid, tokens in output.items() for token in tokens}
 
         return output, token_to_centroid
 
-###############################################################
-
-
-    def build_lookup_table(cluster:tuple, real_value_vectors:dict)->dict:
-        '''
-        Constructs a hamming distance lookup table for a given
-        dict entry produced by the kmeans method.
-
-        Parameters
-        ---------
-            cluster : tuple
-                Cluster id, [list of words]
-            real_value_vectors : dict
-                Dictonary of real-valued vectors for
-                computing the cosine distance of paired words.
-
-        Returns
-        ---------
-            table : dict
-                Word-to-word mapping with hamming
-                distances.
-        '''
-        table = {}
-        idx, words, = cluster
-        for word_1 in words:
-            table[word_1] = {}
-            for word_2 in words:
-                # Get cosine distance with real-value vectors.
-                distance = distance_scipy.cosine(real_value_vectors[word_1],
-                                    real_value_vectors[word_2])
-                table[word_1][word_2] = distance
-
-        return table
-
     # Convert I to k value.
     k = 2**I
-
-###############################################################
     # Create a cache of distances to remove repeated calculations.
     cache = {}
     for token in list(vectors.keys()):
         cache[token] = {}
 
-    print('Making 100 partitionings: ', str(k))
+    print('Making 100 partitionings of size', str(k))
+    start = time.time()
     # Perform partitioning on the data.
     iteration_results = []
     for i in tqdm(range(100)):
-        # centroid_to_tokens, token_to_centroid = get_bisecting_partitions(k)
+        # Store the outputs and token mappings for each iteration.
         iteration_results.append(get_bisecting_partitions(k))
-        # sets_of_groupings.append(get_bisecting_partitions(k))
 
+    end = time.time()
+    print('Time to compute partitionings: ', str(round(end - start, 3)))
+    start = time.time()
+
+    # Get the raw vectors. This will be used to organize
+    # the associated tokens according to the more-reliable
+    # cosine distances.
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
     real_value_vectors, words = load_vectors(raw_vectors,
-
-                                size=200000,
-
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
 
-    # id_to_vector = {idx:entry[1] for idx,entry in enumerate(real_value_vectors.items())}
-
+    # Create a key used to govern the cache policy.
     token_association_key = {}
-
-    for token, vector in real_value_vectors.items():
+    for token, vector in tqdm(real_value_vectors.items()):
+        # Store all words associated with the current token.
         all_words_associated_with_current_token = []
         for centroid_to_tokens, token_to_centroid in iteration_results:
+            # Use the two partitioning dictionaries to access only
+            # those clusters affiliated with the current token.
             for associated_word in centroid_to_tokens[token_to_centroid[token]]:
-                all_words_associated_with_current_token.add(associated_word)
+                all_words_associated_with_current_token.append(associated_word)
 
         words_most_associated_with_current_token = []
+        # Reduce the total size of the words to save on the cosine
+        # distance computations. The heuristic is that if a token
+        # occurs more than 3 times, it may be related.
         for word, count in Counter(all_words_associated_with_current_token).items():
             if count > 3:
                 words_most_associated_with_current_token.append(word)
 
         # Compute and save the cosine distances for the output tables.
         words = list(map(lambda x: (x, distance_scipy.cosine(real_value_vectors[token],
-                            real_value_vectors[x], words_most_associated_with_current_token))))
+                            real_value_vectors[x])), words_most_associated_with_current_token))
+        # Retrieve the original token and first 20 tokens.
         words = sorted(words, key=lambda x: x[1])[:21]
-
-        # TODO: store table for individual token
-        # TODO: store key telling which tokens can be found together
-        token_association_key[token] = []
-
-
-        # top_associated_words_according_to_cosine_distance = \
-        #     sorted(words_most_associated_with_current_token,
-        #         key=lambda x: distance_scipy.cosine(real_value_vectors[token],
-        #             real_value_vectors[x]))[:21]
-
-
-
-
-
-
-
-###############################################################
-
-
-
-
-    # potential_tokens = list(set([token for s in sets_of_groupings for token in s]))
-    # token_scores = []
-    # for token in potential_tokens:
-    #     n = 0
-    #     for set_groups in sets_of_groupings:
-    #         if token in set_groups:
-    #             n+=1
-    #     token_scores.append(n)
-
-    # scored_tokens = zip(potential_tokens, token_scores)
-    # print([tok for tok in sorted(scored_tokens, key=lambda x: distance_scipy.cosine(real_value_vectors['apple'], real_value_vectors[x[0]])) if tok[1] > 2][1:20])
-
-    # print('\n\n')
-
-    exit()
-
-
-###############################################################
-
-
-    # # Store the reverse mapping for indexing the tables.
-    # with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
-    #     dill.dump(token_to_centroid, f)
-
-    # # Store the output for constructing the tables.
-    # with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_ids", 'wb') as f:
-    #     dill.dump(ids, f)
-
-    # # Build lookup tables based on ids.
-    # raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
-    # # Load real-valued vectors.
-    # real_value_vectors, words = load_vectors(raw_vectors,
-    #                             expected_dimensions=300,
-    #                             expected_dtype='float32', get_words=True)
-    # real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
-    start = time.time()
-    # Compute and store a table for each cluster.
-    for cluster in ids.items():
-        table = build_lookup_table(cluster, real_value_vectors)
+        # Organize a lookup table for these distances.
+        table = {word: distance for word, distance in words}
         if save:
-            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{cluster[0]}", 'wb') as f:
-                dill.dump(table, f)
+            try:
+                # Try to dump the table to a file. Since the files
+                # are so small we can make a lot of them with little cost.
+                with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_table", 'wb') as f:
+                    dill.dump(table, f)
 
+                # If successfully dumped, add an entry to the key
+                # governing the cache policy.
+                token_association_key[token] = [word for word, _ in words]
+            except OSError:
+                # Some file names (mostly punctuation) are invalid file names. We could
+                # map all the tokens to an integer, but since punctuation are
+                # irrelevant to the final distance computation anyhow, it is okay to
+                # just skip these files and rather have a neater token-wise retrieval.
+                continue
 
-###############################################################
-
+    # Save the key mapping all tokens to associated words.
+    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+        dill.dump(token_association_key, f)
 
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
@@ -491,6 +410,20 @@ class BWMD():
             with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
                 # Create cache from lookup tables.
                 self.cache = self.LRUCache(15, dill.load(f), model, dim)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         else:
             # Load the raw binary vectors.
