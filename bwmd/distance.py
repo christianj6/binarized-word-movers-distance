@@ -374,7 +374,7 @@ class BWMD():
                     Name of table.
             '''
             # Load the needed table into the cache.
-            with open(f"{self.directory}\\{table}", "rb") as f:
+            with open(f"{self.directory}\\{table}_table", "rb") as f:
                 self.cache[table] = dill.load(f)
                 # Move it to the end of the cache.
                 self.cache.move_to_end(table)
