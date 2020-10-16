@@ -64,7 +64,6 @@ class TestCase(unittest.TestCase):
         # Compute pairwise distances.
         matrix = bwmd.pairwise(corpus)
         print(matrix)
-        # TODO: Evaluate the cache-removal policy.
 
 
 def compute_all_lookup_tables():
@@ -73,12 +72,12 @@ def compute_all_lookup_tables():
     for all vector models.
     '''
     vectors_to_compute = [
-        # 'glove-256',
+        'glove-256',
         'glove-512',
-        # 'fasttext-256',
-        # 'fasttext-512',
-        # 'word2vec-256',
-        # 'word2vec-512'
+        'fasttext-256',
+        'fasttext-512',
+        'word2vec-256',
+        'word2vec-512'
     ]
     for vector in vectors_to_compute:
         dim = vector[-3:]

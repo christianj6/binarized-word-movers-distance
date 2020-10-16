@@ -38,8 +38,6 @@ import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-# Set random seed.
-# random.seed(42)
 
 
 def convert_vectors_to_dict(vectors:list, words:list)->dict:
@@ -513,8 +511,9 @@ class BWMD():
                             # Otherwise use hamming distance
                             distance = hamdist(self.vectors[word_a], self.vectors[word_b])
 
-                    except AttributeError:
-                        # Means there is not cache ie we are using raw hamming.
+                    except (AttributeError, KeyError):
+                        # Means there is no cache ie we are using raw hamming.
+                        # Also if the word is not represented in the vocabulary.
                         distance = hamdist(self.vectors[word_a], self.vectors[word_b])
 
                     # Divide by dimension to normalize score.
