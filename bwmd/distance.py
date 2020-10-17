@@ -24,6 +24,7 @@ By subsequently instantiating a BWMD class referring to the set
 of vectors used to construct the tables, you may compute the
 BWMD distance using these cached tables.
 '''
+import os
 import math
 import random
 from tqdm import tqdm
@@ -98,26 +99,23 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         Parameters
         ---------
             k : int
-                Number of expected clusters.
+                Number of expected clusters. The
+                final number of clusters will
+                likely be less as the algorithm converges
+                when partitions can no longer be split. This
+                is so avoid sampling errors and keep the
+                partitions of relatively equal size.
 
         Returns
         ---------
-
-
-
-
+            output : dict
+                Mapping of centroid token to
+                list of associated tokens.
+            token_to_centroid : dict
+                Reverse of output. Each token
+                is associated with its governing
+                centroid.
         '''
-
-
-        # TODO: Move the cache to each iteration.
-        # TODO: Make sure all variables are local to the
-        # iterated function.
-        # TODO: Make sure all necessary files are dumped
-        # then loaded again. As memory efficient as possible.
-
-
-
-
         # List of partitions which will be iteratively bisected.
         # Begin with the full vector space.
         partitions = [list(vectors.items())]
@@ -138,7 +136,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             # Empty list storing the centroids as well, that these can
             # be zipped with the partition tokens at the end.
             iteration_centroids = []
-
+            # Iterate through the partitions and bisect.
             for j, partition in enumerate(partitions):
                 # Map partition indices to tokens for retrieval.
                 id_to_token = {idx:entry[0] for idx,entry in enumerate(partition)}
@@ -217,17 +215,21 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         return output, token_to_centroid
 
+    n_partitioning_iterations = 100
     # Convert I to k value.
     k = 2**I
-
-
     print('Making 100 partitionings of size', str(k))
+    # Make directory to store the partitions on disk.
+    partitions_dir = f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\partitions"
+    os.makedirs(partitions_dir, exist_ok=True)
     start = time.time()
     # Perform partitioning on the data.
-    iteration_results = []
-    for i in tqdm(range(100)):
-        # Store the outputs and token mappings for each iteration.
-        iteration_results.append(get_bisecting_partitions(k))
+    for i in tqdm(range(n_partitioning_iterations)):
+        # Dump the iteration results to disk so we can
+        # garbage collect some more ram. With datasets of this
+        # size, this is necessary to prevent excessive allocations.
+        with open(f"{partitions_dir}\\{i}", 'wb') as f:
+            dill.dump(get_bisecting_partitions(k), f)
 
     end = time.time()
     print('Time to compute partitionings: ', str(round(end - start, 3)))
@@ -251,7 +253,11 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     for token, vector in tqdm(real_value_vectors.items()):
         # Store all words associated with the current token.
         all_words_associated_with_current_token = []
-        for centroid_to_tokens, token_to_centroid in iteration_results:
+        # Load the dicts from disk.
+        for i in range(n_partitioning_iterations):
+            with open(f"{partitions_dir}\\{i}", "rb") as f:
+                centroid_to_tokens, token_to_centroid = dill.load(f)
+
             # Use the two partitioning dictionaries to access only
             # those clusters affiliated with the current token.
             for associated_word in centroid_to_tokens[token_to_centroid[token]]:
