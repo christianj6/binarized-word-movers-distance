@@ -102,13 +102,22 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         Returns
         ---------
-            ids : dict
-                Mapping of determined cluster to words. Words
-                can then be mapped back to their embeddings
-                using the input vector dict.
-            cache : dict
-                Precomputed values.
+
+
+
+
         '''
+
+
+        # TODO: Move the cache to each iteration.
+        # TODO: Make sure all variables are local to the
+        # iterated function.
+        # TODO: Make sure all necessary files are dumped
+        # then loaded again. As memory efficient as possible.
+
+
+
+
         # List of partitions which will be iteratively bisected.
         # Begin with the full vector space.
         partitions = [list(vectors.items())]
@@ -121,7 +130,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         # Dummy values so we don't start with an empty list.
         length_of_partitions = [1, 3]
         # Iterate until we reach the desired number of partitions.
-        # Second condition determines if last four items are the same,
+        # Second condition determines if last two items are the same,
         # ie if a moderate 'convergence' is seen.
         while len(partitions) < k and not length_of_partitions[-2:].count(length_of_partitions[-2]) == 2:
             # Empty list for updated partitions at end of iteration.
@@ -173,17 +182,12 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                     # Use the same minimum-distance methodology as before.
                     distances = []
                     for centroid in centroids:
-                        try:
-                            # Try to find value in cache.
-                            distance = cache[id_to_token[idx]][id_to_token[centroid]]
-                        except KeyError:
-                            # Otherwise compute distance.
-                            distance = hamdist(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
-                            # Store value in cache.
-                            cache[id_to_token[idx]][id_to_token[centroid]] = distance
-                            # Store reverse value too.
-                            cache[id_to_token[centroid]][id_to_token[idx]] = distance
-
+                        # Compute distance.
+                        # We do not attempt caching because with the randomized
+                        # centroids we will most likely store unused values, thereby
+                        # increasing memory for little gain. Since the hamming
+                        # distance is so cheap anyhow, this is okay.
+                        distance = hamdist(vectors[id_to_token[idx]], vectors[id_to_token[centroid]])
                         distances.append(distance)
 
                     # Minimum value determines assignment.
@@ -215,10 +219,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
     # Convert I to k value.
     k = 2**I
-    # Create a cache of distances to remove repeated calculations.
-    cache = {}
-    for token in list(vectors.keys()):
-        cache[token] = {}
+
 
     print('Making 100 partitionings of size', str(k))
     start = time.time()
@@ -238,6 +239,9 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
     real_value_vectors, words = load_vectors(raw_vectors,
+
+                                size=2000,
+
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
