@@ -215,69 +215,182 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         return output, token_to_centroid
 
-    n_partitioning_iterations = 100
-    # Convert I to k value.
-    k = 2**I
-    print('Making 100 partitionings of size', str(k))
-    # Make directory to store the partitions on disk.
-    partitions_dir = f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\partitions"
-    os.makedirs(partitions_dir, exist_ok=True)
-    start = time.time()
-    # Perform partitioning on the data.
-    for i in tqdm(range(n_partitioning_iterations)):
-        # Dump the iteration results to disk so we can
-        # garbage collect some more ram. With datasets of this
-        # size, this is necessary to prevent excessive allocations.
-        with open(f"{partitions_dir}\\{i}", 'wb') as f:
-            dill.dump(get_bisecting_partitions(k), f)
+    ###
 
-    end = time.time()
-    print('Time to compute partitionings: ', str(round(end - start, 3)))
-    start = time.time()
+
+
+
+    n_partitioning_iterations = 50
+    # # Convert I to k value.
+    # k = 2**I
+    # print('Making 100 partitionings of size', str(k))
+    # # Make directory to store the partitions on disk.
+    partitions_dir = f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\partitions"
+    # os.makedirs(partitions_dir, exist_ok=True)
+    # start = time.time()
+    # # Perform partitioning on the data.
+    # for i in tqdm(range(n_partitioning_iterations)):
+    #     # Dump the iteration results to disk so we can
+    #     # garbage collect some more ram. With datasets of this
+    #     # size, this is necessary to prevent excessive allocations.
+    #     with open(f"{partitions_dir}\\{i}", 'wb') as f:
+    #         dill.dump(get_bisecting_partitions(k), f)
+
+    # end = time.time()
+    # print('Time to compute partitionings: ', str(round(end - start, 3)))
+    # start = time.time()
+
+
+    ####
+
+    # Replace vectors with just the words
+    # to save some memory.
+    vectors = list(vectors.keys())
+    # Load all the partitionings.
+    partitioning_iterations = []
+    print('Loading partitionings ...')
+    for i in tqdm(range(n_partitioning_iterations)):
+        with open(f"{partitions_dir}\\{i}", "rb") as f:
+            partitioning_iterations.append(dill.load(f))
+
+    # For each token, consolidate and save
+    # all words associated with that token, according
+    # to those partitions in which it appears.
+    print('Organizing associated words for all tokens ...')
+    for token in tqdm(vectors):
+        all_words_associated_with_current_token = []
+        for centroid_to_tokens, token_to_centroid in partitioning_iterations:
+            all_words_associated_with_current_token.extend(centroid_to_tokens[token_to_centroid[token]])
+
+        # Dump all the associated words to file.
+        count_tokens = Counter(all_words_associated_with_current_token)
+        # Cut by count threshold to reduce memory.
+        all_words_associated_with_current_token = list(filter(lambda x: x[1] >= 3, count_tokens.items()))
+        # Use the same file as the eventual table
+        # so we can just overwrite it later.
+        with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_table", "wb") as f:
+            dill.dump(all_words_associated_with_current_token, f)
 
     # Get the raw vectors. This will be used to organize
     # the associated tokens according to the more-reliable
     # cosine distances.
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
-    real_value_vectors, words = load_vectors(raw_vectors,
-
-                                size=2000,
-
+    vectors, words = load_vectors(raw_vectors,
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
-    real_value_vectors = convert_vectors_to_dict(real_value_vectors, words)
+    vectors = convert_vectors_to_dict(vectors, words)
 
-    # Create a key used to govern the cache policy.
+    # Load all word data upfront.
+    most_associated_words_each_token = {word: None for word in words}
+    for word in words:
+        with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{word}_table", "rb") as f:
+            most_associated_words_each_token[word] = dill.load(f)
+
+    # Iterate through words, loading the associated file,
+    # and use the cosine distances to further sort the
+    # tokens, extracting the top 20 as ANN.
     token_association_key = {}
-    for token, vector in tqdm(real_value_vectors.items()):
-        # Store all words associated with the current token.
-        all_words_associated_with_current_token = []
-        # Load the dicts from disk.
-        for i in range(n_partitioning_iterations):
-            with open(f"{partitions_dir}\\{i}", "rb") as f:
-                centroid_to_tokens, token_to_centroid = dill.load(f)
-
-            # Use the two partitioning dictionaries to access only
-            # those clusters affiliated with the current token.
-            for associated_word in centroid_to_tokens[token_to_centroid[token]]:
-                all_words_associated_with_current_token.append(associated_word)
-
+    for token, vector in tqdm(vectors.items()):
         words_most_associated_with_current_token = []
-        # Reduce the total size of the words to save on the cosine
-        # distance computations. The heuristic is that if a token
-        # occurs more than 3 times, it may be related.
-        for word, count in Counter(all_words_associated_with_current_token).items():
-            if count > 3:
-                words_most_associated_with_current_token.append(word)
 
         # Compute and save the cosine distances for the output tables.
-        words = list(map(lambda x: (x, distance_scipy.cosine(real_value_vectors[token],
-                            real_value_vectors[x])), words_most_associated_with_current_token))
+        words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
+                            vectors[x])), most_associated_words_each_token[token]))
         # Retrieve the original token and first 20 tokens.
         words = sorted(words, key=lambda x: x[1])[:21]
         # Organize a lookup table for these distances.
         table = {word: distance for word, distance in words}
+
+
+
+
+
+
+    # # Load all the partitions into memory
+    # partitioning_iterations = []
+    # for i in range(n_partitioning_iterations):
+    #     with open(f"{partitions_dir}\\{i}", "rb") as f:
+    #         partitioning_iterations.append(dill.load(f))
+
+
+
+    # Alternative approach dict by dict to speed up
+    # each iteration.
+    # token_to_associations = {token: [] for token, _ in vectors.items()}
+    # for i in tqdm(range(n_partitioning_iterations)):
+    #     with open(f"{partitions_dir}\\{i}", "rb") as f:
+    #         centroid_to_tokens, token_to_centroid = dill.load(f)
+
+    #     for token, vector in vectors.items():
+    #         all_words_associated_with_current_token = []
+
+    #         for associated_word in centroid_to_tokens[token_to_centroid[token]]:
+    #             all_words_associated_with_current_token.append(associated_word)
+
+    #         token_to_associations[token].extend(all_words_associated_with_current_token)
+
+    # token_association_key = {}
+    # for token, vector in tqdm(vectors.items()):
+    #     words_most_associated_with_current_token = []
+
+    #     # Compute and save the cosine distances for the output tables.
+    #     words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
+    #                         vectors[x])), most_associated_words_each_token[token]))
+    #     # Retrieve the original token and first 20 tokens.
+    #     words = sorted(words, key=lambda x: x[1])[:21]
+    #     # Organize a lookup table for these distances.
+    #     table = {word: distance for word, distance in words}
+
+
+
+
+
+
+
+
+
+
+    # Create a key used to govern the cache policy.
+    # token_association_key = {}
+    # for token, vector in tqdm(vectors.items()):
+    #     # Store all words associated with the current token.
+    #     all_words_associated_with_current_token = []
+    #     # Load the dicts from disk.
+
+
+
+    #     # for i in range(n_partitioning_iterations):
+    #     #     with open(f"{partitions_dir}\\{i}", "rb") as f:
+    #     #         centroid_to_tokens, token_to_centroid = dill.load(f)
+    #     for centroid_to_tokens, token_to_centroid in partitioning_iterations:
+
+
+
+    #         # Use the two partitioning dictionaries to access only
+    #         # those clusters affiliated with the current token.
+    #         for associated_word in centroid_to_tokens[token_to_centroid[token]]:
+    #             all_words_associated_with_current_token.append(associated_word)
+
+    #     words_most_associated_with_current_token = []
+    #     # Reduce the total size of the words to save on the cosine
+    #     # distance computations. The heuristic is that if a token
+    #     # occurs more than 3 times, it may be related.
+    #     for word, count in Counter(all_words_associated_with_current_token).items():
+    #         if count > 3:
+    #             words_most_associated_with_current_token.append(word)
+
+    #     # Compute and save the cosine distances for the output tables.
+    #     words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
+    #                         vectors[x])), words_most_associated_with_current_token))
+    #     # Retrieve the original token and first 20 tokens.
+    #     words = sorted(words, key=lambda x: x[1])[:21]
+    #     # Organize a lookup table for these distances.
+    #     table = {word: distance for word, distance in words}
+
+
+
+
         if save:
             try:
                 # Try to dump the table to a file. Since the files

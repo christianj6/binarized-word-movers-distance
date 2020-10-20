@@ -704,13 +704,13 @@ def load_vectors(path, size:int=None,
     # If no specific size provided, get length.
     if size == None:
         size = 0
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding="utf8") as f:
             for line in f:
                 size +=1
 
     words = []
     vectors = []
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding="utf8") as f:
         # Show computation updates.
         for i in tqdm(range(size)):
             try:
