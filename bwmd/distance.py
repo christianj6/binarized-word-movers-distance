@@ -215,10 +215,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         return output, token_to_centroid
 
-    ###
-
-
-
 
     n_partitioning_iterations = 50
     # # Convert I to k value.
@@ -241,7 +237,10 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     # start = time.time()
 
 
-    ####
+    #########################################################################
+    # REMOVE WHEN DONE COMPUTING TABLES FOR GLOVE 512
+    #########################################################################
+
 
     # Replace vectors with just the words
     # to save some memory.
@@ -301,96 +300,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         words = sorted(words, key=lambda x: x[1])[:21]
         # Organize a lookup table for these distances.
         table = {word: distance for word, distance in words}
-
-
-
-
-
-
-    # # Load all the partitions into memory
-    # partitioning_iterations = []
-    # for i in range(n_partitioning_iterations):
-    #     with open(f"{partitions_dir}\\{i}", "rb") as f:
-    #         partitioning_iterations.append(dill.load(f))
-
-
-
-    # Alternative approach dict by dict to speed up
-    # each iteration.
-    # token_to_associations = {token: [] for token, _ in vectors.items()}
-    # for i in tqdm(range(n_partitioning_iterations)):
-    #     with open(f"{partitions_dir}\\{i}", "rb") as f:
-    #         centroid_to_tokens, token_to_centroid = dill.load(f)
-
-    #     for token, vector in vectors.items():
-    #         all_words_associated_with_current_token = []
-
-    #         for associated_word in centroid_to_tokens[token_to_centroid[token]]:
-    #             all_words_associated_with_current_token.append(associated_word)
-
-    #         token_to_associations[token].extend(all_words_associated_with_current_token)
-
-    # token_association_key = {}
-    # for token, vector in tqdm(vectors.items()):
-    #     words_most_associated_with_current_token = []
-
-    #     # Compute and save the cosine distances for the output tables.
-    #     words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
-    #                         vectors[x])), most_associated_words_each_token[token]))
-    #     # Retrieve the original token and first 20 tokens.
-    #     words = sorted(words, key=lambda x: x[1])[:21]
-    #     # Organize a lookup table for these distances.
-    #     table = {word: distance for word, distance in words}
-
-
-
-
-
-
-
-
-
-
-    # Create a key used to govern the cache policy.
-    # token_association_key = {}
-    # for token, vector in tqdm(vectors.items()):
-    #     # Store all words associated with the current token.
-    #     all_words_associated_with_current_token = []
-    #     # Load the dicts from disk.
-
-
-
-    #     # for i in range(n_partitioning_iterations):
-    #     #     with open(f"{partitions_dir}\\{i}", "rb") as f:
-    #     #         centroid_to_tokens, token_to_centroid = dill.load(f)
-    #     for centroid_to_tokens, token_to_centroid in partitioning_iterations:
-
-
-
-    #         # Use the two partitioning dictionaries to access only
-    #         # those clusters affiliated with the current token.
-    #         for associated_word in centroid_to_tokens[token_to_centroid[token]]:
-    #             all_words_associated_with_current_token.append(associated_word)
-
-    #     words_most_associated_with_current_token = []
-    #     # Reduce the total size of the words to save on the cosine
-    #     # distance computations. The heuristic is that if a token
-    #     # occurs more than 3 times, it may be related.
-    #     for word, count in Counter(all_words_associated_with_current_token).items():
-    #         if count > 3:
-    #             words_most_associated_with_current_token.append(word)
-
-    #     # Compute and save the cosine distances for the output tables.
-    #     words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
-    #                         vectors[x])), words_most_associated_with_current_token))
-    #     # Retrieve the original token and first 20 tokens.
-    #     words = sorted(words, key=lambda x: x[1])[:21]
-    #     # Organize a lookup table for these distances.
-    #     table = {word: distance for word, distance in words}
-
-
-
-
+        # Save table to file.
         if save:
             try:
                 # Try to dump the table to a file. Since the files
