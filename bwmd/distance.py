@@ -252,6 +252,11 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         with open(f"{partitions_dir}\\{i}", "rb") as f:
             partitioning_iterations.append(dill.load(f))
 
+
+    # TODO: Use different variable so we can overwrite the
+    # partitioning iterations later.
+
+
     # For each token, consolidate and save
     # all words associated with that token, according
     # to those partitions in which it appears.
@@ -265,10 +270,11 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         count_tokens = Counter(all_words_associated_with_current_token)
         # Cut by count threshold to reduce memory.
         all_words_associated_with_current_token = list(filter(lambda x: x[1] >= 3, count_tokens.items()))
-        # Use the same file as the eventual table
-        # so we can just overwrite it later.
-        with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_table", "wb") as f:
-            dill.dump(all_words_associated_with_current_token, f)
+        try:
+            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_wordlist", "wb") as f:
+                dill.dump(all_words_associated_with_current_token, f)
+        except OSError:
+            continue
 
     # Get the raw vectors. This will be used to organize
     # the associated tokens according to the more-reliable
@@ -283,8 +289,11 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     # Load all word data upfront.
     most_associated_words_each_token = {word: None for word in words}
     for word in words:
-        with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{word}_table", "rb") as f:
-            most_associated_words_each_token[word] = dill.load(f)
+        try:
+            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{word}_wordlist", "rb") as f:
+                most_associated_words_each_token[word] = dill.load(f)
+        except OSError:
+            continue
 
     # Iterate through words, loading the associated file,
     # and use the cosine distances to further sort the
