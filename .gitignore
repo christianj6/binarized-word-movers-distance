@@ -140,3 +140,6 @@ snippets/
 
 # Output images.
 res/images/*.png
+
+# Tables and partitions
+res/tables/glove

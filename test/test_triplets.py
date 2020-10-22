@@ -5,6 +5,8 @@ from bwmd.distance import convert_vectors_to_dict, BWMD
 
 # TODO: Helper functions for triplets task.
 # TODO: All test cases must use all embeddings.
+# TODO: Generic function for running a test.
+# TODO: a and b should be more similar than b and c.
 
 class TestCase(unittest.TestCase):
     '''
@@ -27,26 +29,6 @@ class TestCase(unittest.TestCase):
         pass
 
     def test_wikipedia_tables_no_syntax(self):
-        '''
-        '''
-        pass
-
-    def test_arxiv_hamming_syntax(self):
-        '''
-        '''
-        pass
-
-    def test_arxiv_hamming_no_syntax(self):
-        '''
-        '''
-        pass
-
-    def test_arxiv_tables_syntax(self):
-        '''
-        '''
-        pass
-
-    def test_arxiv_tables_no_syntax(self):
         '''
         '''
         pass
