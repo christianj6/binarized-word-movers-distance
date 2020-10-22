@@ -216,7 +216,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         return output, token_to_centroid
 
 
-    n_partitioning_iterations = 50
+    n_partitioning_iterations = 25
     # # Convert I to k value.
     # k = 2**I
     # print('Making 100 partitionings of size', str(k))
