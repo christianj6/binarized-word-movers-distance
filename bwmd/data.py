@@ -1,43 +1,88 @@
 import requests
+from bwmd.compressor import load_vectors
 import bs4
+import dill
+import re
 
 
-# TODO: Load vectors so we can exclude words not in vector space.
-
-def preprocess_wikipedia():
+def preprocess_wikipedia(wordlist):
     '''
+    Preprocess and clean wikipedia pages
+    that they can be employed for
+    evaluation on the triplets task.
+
+    Parameters
+    ---------
+        wordlist : list[str]
+            List of words that we only extract
+            those we expect to find in the
+            vectors.
     '''
     def process_content(url):
         '''
-        '''
-        response = requests.get(url)
-        contents = response.content
+        Parse a single url, extracting the
+        relevant content.
 
+        Parameters
+        ---------
+            url : str
+                Path to webpage.
+
+        Returns
+        ---------
+            cleaned_txt : str
+                Extracted text with irrelevant
+                characters and words removed.
+        '''
+        # Get response.
+        response = requests.get(url)
+        # Get content.
+        contents = response.content
         if response is not None:
+            # Get response as parsed html text.
             html = bs4.BeautifulSoup(response.text, 'html.parser')
+            # Extract the title.
             title = html.select("#firstHeading")[0].text
+            # Get all the paragraphs.
             paragraphs = html.select("p")
 
-        # TODO: Clean for [digits]
+        # Remove non alphanumeric characters.
+        paragraphs = [p.text.strip() for p in paragraphs]
+        paragraphs = [re.sub(r'[^a-zA-Z0-9_ ]+', '', p) for p in paragraphs]
+        # Remove words not in wordlist.
+        clean_for_wordlist = lambda x: ' '.join([x for x in x.split() if x in wordlist])
+        paragraphs = list(map(clean_for_wordlist, paragraphs))
 
-        return ''.join([title, ' ']+[p.text.strip() for p in paragraphs])
+        return ''.join([title, ' ']+paragraphs)
 
     with open('res\\datasets\\triplets\\wikipedia.txt', 'r') as f:
+        # Just use a counter to name the files.
+        counter = 0
         for line in f:
-            a, b, c = tuple(line.split())
-            print(process_content(a))
-            print('\n')
-            print(process_content(b))
-            print('\n')
-            print(process_content(c))
-            print('\n')
+            print(counter)
+            # Get processed text of each article.
+            a, b, c = map(process_content, tuple(line.split()))
+            print(a)
+            exit()
+            # Dump the tuple to file.
+            with open(f'res\\datasets\\triplets\\wikipedia-{counter}', 'wb') as g:
+                dill.dump(tuple(a, b, c), g)
 
-            # TODO: Save the documents in appropriate format, which
-            # represents the correct semantic relationships between them and
-            # can be easily retrieved during testing.
+            counter += 1
+
+
+def main():
+    # Load vectors so we can exclude words not in vector space.
+    vectors, words = load_vectors(
+            "res\\glove-256.txtc",
+            expected_dimensions=256,
+            expected_dtype='bool_',
+            get_words=True
+        )
+    # Process and save wikipedia articles.
+    preprocess_wikipedia(words)
+
 
 if __name__ == '__main__':
-    # TODO: arxiv is totally unsuitable
-    # TODO: Process wikipedia
-    preprocess_wikipedia()
-    # TODO: Save everything in the res.
+    main()
+
