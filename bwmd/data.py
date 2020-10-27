@@ -60,13 +60,17 @@ def preprocess_wikipedia(wordlist):
         counter = 0
         for line in f:
             print(counter)
-            # Get processed text of each article.
-            abc = map(process_content, tuple(line.split()))
-            # Dump the tuple to file.
-            with open(f'res\\datasets\\triplets\\wikipedia-{counter}', 'wb') as g:
-                dill.dump(tuple(abc), g)
+            try:
+                # Get processed text of each article.
+                abc = map(process_content, tuple(line.split()))
+                # Dump the tuple to file.
+                with open(f'res\\datasets\\triplets\\wikipedia-{counter}', 'wb') as g:
+                    dill.dump(tuple(abc), g)
 
-            counter += 1
+                counter += 1
+
+            except Exception:
+                continue
 
 
 def main():
