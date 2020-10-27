@@ -215,32 +215,31 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         return output, token_to_centroid
 
+#########################################################################
+#########################################################################
 
-    n_partitioning_iterations = 25
-    # # Convert I to k value.
-    # k = 2**I
-    # print('Making 100 partitionings of size', str(k))
-    # # Make directory to store the partitions on disk.
+    n_partitioning_iterations = 100
+    # Convert I to k value.
+    k = 2**I
+    print('Making 100 partitionings of size', str(k))
+    # Make directory to store the partitions on disk.
     partitions_dir = f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\partitions"
-    # os.makedirs(partitions_dir, exist_ok=True)
-    # start = time.time()
-    # # Perform partitioning on the data.
-    # for i in tqdm(range(n_partitioning_iterations)):
-    #     # Dump the iteration results to disk so we can
-    #     # garbage collect some more ram. With datasets of this
-    #     # size, this is necessary to prevent excessive allocations.
-    #     with open(f"{partitions_dir}\\{i}", 'wb') as f:
-    #         dill.dump(get_bisecting_partitions(k), f)
+    os.makedirs(partitions_dir, exist_ok=True)
+    start = time.time()
+    # Perform partitioning on the data.
+    for i in tqdm(range(n_partitioning_iterations)):
+        # Dump the iteration results to disk so we can
+        # garbage collect some more ram. With datasets of this
+        # size, this is necessary to prevent excessive allocations.
+        with open(f"{partitions_dir}\\{i}", 'wb') as f:
+            dill.dump(get_bisecting_partitions(k), f)
 
-    # end = time.time()
-    # print('Time to compute partitionings: ', str(round(end - start, 3)))
-    # start = time.time()
+    end = time.time()
+    print('Time to compute partitionings: ', str(round(end - start, 3)))
+    start = time.time()
 
-
-    #########################################################################
-    # REMOVE WHEN DONE COMPUTING TABLES FOR GLOVE 512
-    #########################################################################
-
+#########################################################################
+#########################################################################
 
     # Replace vectors with just the words
     # to save some memory.
@@ -252,10 +251,8 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         with open(f"{partitions_dir}\\{i}", "rb") as f:
             partitioning_iterations.append(dill.load(f))
 
-
-    # TODO: Use different variable so we can overwrite the
-    # partitioning iterations later.
-
+#########################################################################
+#########################################################################
 
     # For each token, consolidate and save
     # all words associated with that token, according
@@ -276,35 +273,50 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         except OSError:
             continue
 
+#########################################################################
+#########################################################################
+
     # Get the raw vectors. This will be used to organize
     # the associated tokens according to the more-reliable
     # cosine distances.
+    print('Loading raw vectors ...')
     raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
     # Load real-valued vectors.
     vectors, words = load_vectors(raw_vectors,
+
+                                size=200_000,
+
                                 expected_dimensions=300,
                                 expected_dtype='float32', get_words=True)
     vectors = convert_vectors_to_dict(vectors, words)
 
     # Load all word data upfront.
+    print('Loading wordlists ...')
     most_associated_words_each_token = {word: None for word in words}
-    for word in words:
+    for word in tqdm(words):
         try:
             with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{word}_wordlist", "rb") as f:
                 most_associated_words_each_token[word] = dill.load(f)
-        except OSError:
+        except Exception:
+            # Handle some pickling errors and bad file names.
             continue
 
     # Iterate through words, loading the associated file,
     # and use the cosine distances to further sort the
     # tokens, extracting the top 20 as ANN.
+    print('Computing cosine distances for each token ...')
     token_association_key = {}
     for token, vector in tqdm(vectors.items()):
-        words_most_associated_with_current_token = []
+        # words_most_associated_with_current_token = []
+        try:
 
-        # Compute and save the cosine distances for the output tables.
-        words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
-                            vectors[x])), most_associated_words_each_token[token]))
+            # Compute and save the cosine distances for the output tables.
+            words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
+                                vectors[x[0]])), most_associated_words_each_token[token]))
+
+        except (KeyError, TypeError):
+            continue
+
         # Retrieve the original token and first 20 tokens.
         words = sorted(words, key=lambda x: x[1])[:21]
         # Organize a lookup table for these distances.
@@ -334,7 +346,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
 
-    return token_to_centroid
+    return None
 
 
 class BWMD():
