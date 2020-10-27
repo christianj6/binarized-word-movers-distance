@@ -73,17 +73,20 @@ def compute_all_lookup_tables():
     '''
     vectors_to_compute = [
        # 'glove-256',
-       'glove-512',
+       # 'glove-512',
        # 'fasttext-256',
-       # 'fasttext-512',
+       'fasttext-512',
        # 'word2vec-256',
-       # 'word2vec-512'
+       'word2vec-512'
     ]
     for vector in vectors_to_compute:
         dim = vector[-3:]
         vector = f"res\\{vector}.txtc"
         vectors, words = load_vectors(
                 vector,
+
+                size=200_000,
+
                 expected_dimensions=int(dim),
                 expected_dtype=COMPRESSION,
                 get_words=True
@@ -91,7 +94,7 @@ def compute_all_lookup_tables():
         vectors = convert_vectors_to_dict(vectors, words)
         tables = build_kmeans_lookup_tables(
                 vectors,
-                I=14,
+                I=11,
                 path=vector,
                 vector_size=dim
             )
