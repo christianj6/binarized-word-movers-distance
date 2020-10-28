@@ -143,3 +143,5 @@ res/images/*.png
 
 # Tables and partitions
 res/tables/glove
+res/tables/fasttext
+res/tables/word2vec
