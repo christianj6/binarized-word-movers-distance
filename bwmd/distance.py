@@ -311,7 +311,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         try:
 
             # Compute and save the cosine distances for the output tables.
-            words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
+            words = list(map(lambda x: (x[0], distance_scipy.cosine(vectors[token],
                                 vectors[x[0]])), most_associated_words_each_token[token]))
 
         except (KeyError, TypeError):
@@ -402,22 +402,25 @@ class BWMD():
                     an arbitrary, maximum default if not distance can
                     be found.
             '''
-            table = self.key[word_1]
+            # table = self.key[word_1]
             try:
                 # First try to get the value.
-                return self.cache[table][word_2]
+                # return self.cache[table][word_2]
+                return self.cache[word_1][word_2]
             except KeyError:
                 try:
                     # If unavailable, load the necessary table.
-                    self.load(table)
+                    print('Trying to load a new cache ...')
+                    self.load(word_1)
                     # Try to return the relevant value.
-                    return self.cache[table][word_2]
+                    return self.cache[word_1][word_2]
                 except KeyError:
                     # If the two points are in different clusters,
                     # return default maximum value.
+                    print('Returning default 1 ...')
                     return 1
 
-        def load(self, table:dict)->None:
+        def load(self, table:str)->None:
             '''
             Load a new table into the cache if it
             is not yet in the cache.
