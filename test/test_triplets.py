@@ -1,5 +1,6 @@
 import unittest
 from bwmd.compressor import load_vectors
+from tqdm import tqdm
 from bwmd.distance import convert_vectors_to_dict, BWMD
 import dill
 
@@ -32,33 +33,59 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
             of tuples for which the incorrect
             evaluation was made.
     '''
-    # Load all the triplets.
+    import time
+    # Initialize BWMD.
+    print('Initializing bwmd object ...')
+    bwmd = BWMD(model, dim, with_syntax=syntax,
+                    raw_hamming=raw_hamming,
+                    full_cache=True)
+
+    # Load all the triplets and clean.
     corpus = []
-    for i in range(20_000):
+    print('Loading wikipedia corpus ...')
+    # for i in tqdm(range(20_000)):
+    for i in tqdm(range(20_000)):
         try:
             with open(f'res\\datasets\\triplets\\wikipedia-{i}', 'rb') as f:
-                corpus.append(dill.load(f))
+                triplet = dill.load(f)
+                # Split the texts.
+                a_b_c = list(map(lambda x: x.split(), triplet))
+                # Clean each tuple.
+                new_tuple = []
+                for item in a_b_c:
+                    # Clean item.
+                    new_tuple.append([word.lower() for word in item if word in bwmd.words])
+                corpus.append(tuple(new_tuple))
 
         except FileNotFoundError:
             continue
 
-    # Initialize BWMD.
-    bwmd = BWMD(model, dim, with_syntax=syntax,
-                    raw_hamming=raw_hamming)
-
+    times = []
     # List to store the errors.
     score = []
+    print('Computing score ...')
+    # for triplet in tqdm(corpus):
     for triplet in corpus:
+        start = time.time()
         # Split the texts.
-        triplet = list(map(lambda x: x.split(), triplet))
-        # Pairwise distances.
-        matrix = bwmd.pairwise(triplet)
+        a, b, c = triplet
+        # Get distances for assessment.
+        a_b = bwmd.get_distance(a, b)
+        a_c = bwmd.get_distance(a, c)
+        b_c = bwmd.get_distance(b, c)
         # Conditional for scoring
-        if not matrix[0][1] < matrix[0][2] and matrix[1][0] < matrix[1][2]:
+        if a_b < a_c and a_b < b_c:
+            print(a_b, a_c, b_c)
             # Just use a binary scoring method.
             score.append(0)
         else:
             score.append(1)
+
+        end = time.time()
+        times.append((end - start))
+        # print('\n\n')
+
+    print(sum(times) / len(times))
 
     # Return simple average as percentage error.
     return sum(score) / len(score)
@@ -73,7 +100,11 @@ class TestCase(unittest.TestCase):
         '''
         '''
         # TODO: All test cases must use all embeddings.
-        pass
+        # TODO: Fix issue that some dependencies are not accounted for.
+        # TODO: Figure out why so slow and speed up.
+        # TODO: Time computations.
+        score = evaluate_triplets_task('glove', '512', False, False)
+        print(score)
 
     def test_wikipedia_hamming_no_syntax(self):
         '''

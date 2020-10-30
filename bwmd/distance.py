@@ -41,7 +41,20 @@ from nltk.corpus import stopwords
 sw = stopwords.words("english")
 
 
-def convert_vectors_to_dict(vectors:list, words:list)->dict:
+from numba import jit, types, typeof #, NumbaPendingDeprecationWarning
+from numba.typed import Dict, List
+from numba.types import DictType
+
+# from numba.errors import NumbaPendingDeprecationWarning
+
+# import warnings
+# warnings.filterwarnings('ignore', category=NumbaPendingDeprecationWarning)
+
+# TODO: Fix numba deprecated type warning
+
+
+def convert_vectors_to_dict(vectors:list, words:list,
+                return_numba:bool=False)->dict:
     '''
     Convert a set of loaded word vectors
     to a word-vector dictionary for
@@ -59,6 +72,18 @@ def convert_vectors_to_dict(vectors:list, words:list)->dict:
         vectors_dict : dict
             Mapping of words to vectors.
     '''
+    if return_numba:
+        # Use numba object.
+        vectors_dict = Dict.empty(
+                            key_type=types.unicode_type,
+                            value_type=types.int8[:]
+                            )
+        for vector, word in zip(vectors, words):
+            vectors_dict[word] = vector[0]
+
+        return vectors_dict
+
+
     vectors_dict = {}
     for vector, word in zip(vectors, words):
         vectors_dict[word] = vector
@@ -381,7 +406,7 @@ class BWMD():
             '''
             self.cache = OrderedDict()
             self.capacity = capacity
-            self.key = key
+            self.key = {token: [word.lower() for word,_ in tuples] for token, tuples in key.items()}
             self.directory = f"res\\tables\\{model}\\{dim}"
 
         def get(self, word_1:str, word_2:str)->float:
@@ -432,7 +457,8 @@ class BWMD():
             '''
             # Load the needed table into the cache.
             with open(f"{self.directory}\\{table}_table", "rb") as f:
-                self.cache[table] = dill.load(f)
+                self.cache[table] = {word.lower(): distance for word, distance in dill.load(f).items()}
+                print(self.cache[table])
                 # Move it to the end of the cache.
                 self.cache.move_to_end(table)
 
@@ -442,7 +468,9 @@ class BWMD():
 
 
     def __init__(self, model:str, dim:str,
-                    with_syntax:bool=True, raw_hamming:bool=False)->None:
+                    with_syntax:bool=True,
+                    raw_hamming:bool=False,
+                    full_cache:bool=False)->None:
         '''
         Initialize table key and cache.
 
@@ -459,20 +487,33 @@ class BWMD():
             raw_hamming : bool
                 y/n to use raw hamming distances based on binary vectors, rather
                 than cosine distances from a precomputed lookup table.
+            full_cache : bool
+                y/n simply load all tables into a single cache. This will allow
+                for faster lookup but may be memory-intensive depending
+                on the machine and number of computed tables / their
+                individual sizes.
         '''
         self.dim = int(dim)
         if not raw_hamming:
             with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
-                # Create cache from lookup tables.
-                self.cache = self.LRUCache(2000, dill.load(f), model, dim)
+                if full_cache:
+                    # Load all tables into a single cache.
+                    self.cache = self.load_all_lookup_tables(dill.load(f), model, dim)
+                else:
+                    # Create intelligent cache from lookup tables.
+                    self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
-        else:
-            # Load the raw binary vectors.
-            filepath = f"res\\{model}-{dim}.txtc"
-            vectors, words = load_vectors(filepath,
+        # else:
+        # Load the raw binary vectors.
+        filepath = f"res\\{model}-{dim}.txtc"
+        vectors, self.words = load_vectors(filepath,
+
+                                # size=200,
+
                                 expected_dimensions=int(dim),
-                                    expected_dtype='bool_', get_words=True)
-            self.vectors = convert_vectors_to_dict(vectors, words)
+                                expected_dtype='bool_', get_words=True,
+                                return_numpy=True)
+        self.vectors = convert_vectors_to_dict(vectors, self.words, return_numba=True)
 
         # Load the lookup table of dependency distances.
         if with_syntax:
@@ -480,6 +521,56 @@ class BWMD():
                 self.dependency_distances = dill.load(f)
 
             self.nlp = spacy.load('en_core_web_sm')
+
+
+    def load_all_lookup_tables(self, key:dict, model:str, dim:str)->dict:
+        '''
+        Load all lookup tables as a single
+        dictionary for accelerated lookup
+        during distance computations.
+
+        Parameters
+        ---------
+            key : dict
+            model : str
+            dim : str
+
+        Returns
+        ---------
+            lookup_dict : dict
+                Dictionary mapping each
+                token to a dictionary of
+                ANNs and their cosine
+                distances.
+        '''
+        key = {token: [word.lower() for word,_ in tuples] for token, tuples in key.items()}
+
+        d1 = Dict.empty(
+                        key_type=types.unicode_type,
+                        value_type=types.float64
+                        )
+
+        lookup_dict = Dict.empty(
+                        key_type=types.unicode_type,
+                        value_type=typeof(d1)
+                        )
+
+
+
+        print('Loading all lookup tables ...')
+        for k in tqdm(list(key.keys())):
+            with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
+                # lookup_dict[k.lower()] = \
+                    # {word.lower(): value for word, value in dill.load(f)}
+                updated_dict = {word.lower(): value for word, value in dill.load(f)}
+                lookup_dict[k.lower()] = Dict.empty(
+                                                key_type=types.unicode_type,
+                                                value_type=types.float64
+                                                )
+                for w,v in updated_dict.items():
+                    lookup_dict[k.lower()][w] = v
+
+        return lookup_dict
 
 
     def get_distance(self, text_a:list, text_b:list)->float:
@@ -529,7 +620,10 @@ class BWMD():
             return dependencies
 
 
-        def get_distance_unidirectional(a:list, b:list)->float:
+        @jit(nopython=True)
+        def get_distance_unidirectional(a:list, b:list,
+                                vectors:dict, cache:dict,
+                                    words:list, dim:int, stopw:list)->float:
             '''
             Calculate the BWMD in one direction. Needed to
             bootstrap a bidirectional distance as the metric
@@ -541,6 +635,10 @@ class BWMD():
                     One document as list of token strings.
                 b : list
                     Another document as list of token strings.
+                vectors :
+                cache :
+                words :
+                dim :
 
             Returns
             ---------
@@ -548,54 +646,126 @@ class BWMD():
                     Unidirectional score.
             '''
             wmd = 0
-            for i, word_a in enumerate(a):
-                if word_a in sw:
-                    # Skip stopwords.
+            # for i, word_a in enumerate(a):
+            for word_a in a:
+
+                # print(f'Document a, word {i} ...')
+                if word_a in stopw or word_a not in words:
+                    # Skip stopwords or nonsense words.
                     continue
                 distances = []
                 for word_b in b:
-                    if word_b in sw:
-                        # Skip stopwords.
+                    # print(f'Document b, word {word_b}')
+                    if word_b in stopw or word_b not in words:
+                        # Skip stopwords or nonsense words.
                         continue
                     try:
-                        # Check if either of the words is in the other's table; if
-                        # so, then we just look it up accordingly.
-                        if word_b in self.cache.key[word_a]:
-                            distance = self.cache.get(word_a, word_b)
-                        elif word_a in self.cache.key[word_b]:
-                            distance = self.cache.get(word_b, word_a)
-                        else:
-                            # Otherwise use hamming distance
-                            distance = hamdist(self.vectors[word_a], self.vectors[word_b])
 
-                    except (AttributeError, KeyError):
+                        # if word_b in cache[word_a].keys():
+                            # print('Found in cache ...')
+                        distance = cache[word_a][word_b]                            # CONDITIONAL!!
+                        # elif word_a in cache[word_b].keys():
+                            # print('Found in cache alternative ...')
+                            # distance = cache[word_b][word_a]                                  # CONDITIONAL
+                        # else:
+                            # Otherwise use hamming distance
+                            # print('Getting hamming distance ...')
+                            # distance = hamdist(vectors[word_a], vectors[word_b])    # HAMMING!!!
+                            # distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) / dim
+                            # distance = 1
+#######################################################################
+# OLD APPROACH WITH LRU CACHE ... NEED TO COMPENSATE SOMEHOW
+#######################################################################
+
+                        # # Check if either of the words is in the other's table; if
+                        # # so, then we just look it up accordingly.
+                        # # print('Trying to find in the cache ...')
+                        # # print(self.cache.key[word_a])
+                        # if word_b in self.cache.key[word_a]:
+                        #     print('Getting from cache ...')
+                        #     distance = self.cache.get(word_a, word_b)
+                        # elif word_a in self.cache.key[word_b]:
+                        #     print('Getting from cache alternative ...')
+                        #     distance = self.cache.get(word_b, word_a)
+                        # else:
+                        #     # Otherwise use hamming distance
+                        #     # print('Getting hamming distance ...')
+                        #     distance = hamdist(self.vectors[word_a], self.vectors[word_b])
+
+#######################################################################
+# OLD APPROACH WITH LRU CACHE ... NEED TO COMPENSATE SOMEHOW
+#######################################################################
+
+
+                    # except (AttributeError, KeyError):
+                    except Exception:
                         # Means there is no cache ie we are using raw hamming.
                         # Also if the word is not represented in the vocabulary.
-                        distance = hamdist(self.vectors[word_a], self.vectors[word_b])
+                        # print('Cache error using hamming ...')
+                        # distance = hamdist(vectors[word_a], vectors[word_b])    # HAMMING!!!
+                        distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) / dim
+                        # distance = 1
 
                     # Divide by dimension to normalize score.
-                    distances.append(distance / self.dim)
+                    # distances.append(distance / dim)
+                    distances.append(distance)
 
                 distance = min(distances)
-                try:
-                    # Try get syntax info, if error assume that object is not
-                    # configured for getting syntex information.
-                    a_dep, b_dep = get_dependencies(a), get_dependencies(b)
-                    dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
-                    # Weighted arithmetic mean.
-                    wmd += 0.75*distance + 0.25*dependency_distance
-                except (TypeError, AttributeError):
-                    wmd += distance
+                # try:
+                #     # Try get syntax info, if error assume that object is not
+                #     # configured for getting syntex information.
+                #     print('Getting dependencies ...')
+                #     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
+                #     dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
+                #     # Weighted arithmetic mean.
+                #     wmd += 0.75*distance + 0.25*dependency_distance
+                # except (TypeError, AttributeError):
+                #     # Error if not configured for syntax.
+                #     wmd += distance
 
+##########################################################
+
+                wmd += distance
+
+##########################################################
+
+            # print('Returning unidirectional wmd ...')
             # Divide by length of first text to normalize the score.
             # Length is controlled for stopwords.
-            return wmd / len([word for word in a if not word in sw])
+
+################################################
+# STUPID RETURN JUST TO GET NUMBA TO WORK
+################################################
+
+            # return wmd / len([word for word in a if not word in sw])
+            return wmd / len(a)
+
+################################################
+# STUPID RETURN JUST TO GET NUMBA TO WORK
+################################################
 
         # Get score from both directions and sum to make the
         # metric bidirectional. Summation determined to be most
         # effective approach cf. Hamann (2018).
-        bwmd = get_distance_unidirectional(text_a, text_b)
-        bwmd += get_distance_unidirectional(text_b, text_a)
+        # print('Computing first direction ...')
+
+        typed_sw = List()
+        [typed_sw.append(word) for word in sw]
+
+        typed_a = List()
+        [typed_a.append(word) for word in text_a]
+        typed_b = List()
+        [typed_b.append(word) for word in text_b]
+        # TODO: Cast all texts to numba list before runtime!!!
+        typed_words = List()
+        [typed_words.append(word) for word in self.words]
+
+        # Pass variables to function so numba works.
+        bwmd = get_distance_unidirectional(typed_a, typed_b,
+                            self.vectors, self.cache, typed_words, self.dim, typed_sw)
+        # print('Computing second direction ...')
+        bwmd += get_distance_unidirectional(typed_b, typed_a,
+                            self.vectors, self.cache, typed_words, self.dim, typed_sw)
 
         # Divide by two to normalize the score.
         return bwmd / 2

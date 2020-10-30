@@ -72,11 +72,11 @@ def compute_all_lookup_tables():
     for all vector models.
     '''
     vectors_to_compute = [
-       # 'glove-256',
-       # 'glove-512',
-       # 'fasttext-256',
+       'glove-256',
+       'glove-512',
+       'fasttext-256',
        'fasttext-512',
-       # 'word2vec-256',
+       'word2vec-256',
        'word2vec-512'
     ]
     for vector in vectors_to_compute:

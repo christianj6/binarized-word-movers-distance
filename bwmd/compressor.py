@@ -674,7 +674,8 @@ def load_vectors(path, size:int=None,
                 expected_dimensions:int=300,
                 expected_dtype:str='float32',
                 get_words:bool=False,
-                bitarray:bool=False)->list:
+                bitarray:bool=False,
+                return_numpy:bool=False)->list:
     '''
     Load word embedding vectors from file.
 
@@ -725,6 +726,16 @@ def load_vectors(path, size:int=None,
                         # necessary for interface with some
                         # external libraries.
                         vector = BitArray(bin=bits)
+                        if len(bits) == expected_dimensions:
+                            vectors.append(vector)
+                            words.append(word)
+                        continue
+
+                    elif return_numpy:
+                        # Option to use numpy array, necessary to take
+                        # advantage of numba jit compiling, which does
+                        # not support other objects.
+                        vector = np.asarray(list(bits), dtype='int8').reshape(1, -1)
                         if len(bits) == expected_dimensions:
                             vectors.append(vector)
                             words.append(word)
