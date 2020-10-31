@@ -40,17 +40,9 @@ from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
 
-
-from numba import jit, types, typeof #, NumbaPendingDeprecationWarning
+from numba import jit, types, typeof
 from numba.typed import Dict, List
 from numba.types import DictType
-
-# from numba.errors import NumbaPendingDeprecationWarning
-
-# import warnings
-# warnings.filterwarnings('ignore', category=NumbaPendingDeprecationWarning)
-
-# TODO: Fix numba deprecated type warning
 
 
 def convert_vectors_to_dict(vectors:list, words:list,
@@ -79,11 +71,12 @@ def convert_vectors_to_dict(vectors:list, words:list,
                             value_type=types.int8[:]
                             )
         for vector, word in zip(vectors, words):
+            # Append one dimensional array.
             vectors_dict[word] = vector[0]
 
         return vectors_dict
 
-
+    # Otherwise just a normal dictionary.
     vectors_dict = {}
     for vector, word in zip(vectors, words):
         vectors_dict[word] = vector
@@ -427,22 +420,18 @@ class BWMD():
                     an arbitrary, maximum default if not distance can
                     be found.
             '''
-            # table = self.key[word_1]
             try:
                 # First try to get the value.
-                # return self.cache[table][word_2]
                 return self.cache[word_1][word_2]
             except KeyError:
                 try:
                     # If unavailable, load the necessary table.
-                    print('Trying to load a new cache ...')
                     self.load(word_1)
                     # Try to return the relevant value.
                     return self.cache[word_1][word_2]
                 except KeyError:
                     # If the two points are in different clusters,
                     # return default maximum value.
-                    print('Returning default 1 ...')
                     return 1
 
         def load(self, table:str)->None:
@@ -458,7 +447,6 @@ class BWMD():
             # Load the needed table into the cache.
             with open(f"{self.directory}\\{table}_table", "rb") as f:
                 self.cache[table] = {word.lower(): distance for word, distance in dill.load(f).items()}
-                print(self.cache[table])
                 # Move it to the end of the cache.
                 self.cache.move_to_end(table)
 
