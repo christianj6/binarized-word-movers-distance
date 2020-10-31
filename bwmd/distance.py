@@ -39,11 +39,17 @@ import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-
 from numba import jit, types, typeof
 from numba.typed import Dict, List
 from numba.types import DictType
 
+
+# Create empty dict so we can use it's type
+# to create nested dictionaries later.
+D1 = Dict.empty(
+                key_type=types.unicode_type,
+                value_type=types.float64
+                )
 
 def convert_vectors_to_dict(vectors:list, words:list,
                 return_numba:bool=False)->dict:
@@ -491,13 +497,9 @@ class BWMD():
                     # Create intelligent cache from lookup tables.
                     self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
-        # else:
         # Load the raw binary vectors.
         filepath = f"res\\{model}-{dim}.txtc"
         vectors, self.words = load_vectors(filepath,
-
-                                # size=200,
-
                                 expected_dimensions=int(dim),
                                 expected_dtype='bool_', get_words=True,
                                 return_numpy=True)
@@ -520,8 +522,13 @@ class BWMD():
         Parameters
         ---------
             key : dict
+                Mapping of tokens to their assocaited
+                words. Keys are used as a base list for
+                loading all dicts.
             model : str
+                Name of model tables to load.
             dim : str
+                Model dimension.
 
         Returns
         ---------
@@ -531,30 +538,32 @@ class BWMD():
                 ANNs and their cosine
                 distances.
         '''
+        # Reformat the keys for compatibility with the
+        # corpus. Lowercase.
+
+        # TODO: Clean the original files.
+
         key = {token: [word.lower() for word,_ in tuples] for token, tuples in key.items()}
-
-        d1 = Dict.empty(
-                        key_type=types.unicode_type,
-                        value_type=types.float64
-                        )
-
+        # Create the outer dictionary.
         lookup_dict = Dict.empty(
                         key_type=types.unicode_type,
-                        value_type=typeof(d1)
+                        value_type=typeof(D1)
                         )
-
-
 
         print('Loading all lookup tables ...')
         for k in tqdm(list(key.keys())):
             with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
-                # lookup_dict[k.lower()] = \
-                    # {word.lower(): value for word, value in dill.load(f)}
+                # Reformat the words to lowercase.
+
+                # TODO: Clean the original files.
+
                 updated_dict = {word.lower(): value for word, value in dill.load(f)}
+                # Make inner dictionary.
                 lookup_dict[k.lower()] = Dict.empty(
                                                 key_type=types.unicode_type,
                                                 value_type=types.float64
                                                 )
+                # Add values to inner dictionary.
                 for w,v in updated_dict.items():
                     lookup_dict[k.lower()][w] = v
 
