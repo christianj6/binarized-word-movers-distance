@@ -43,7 +43,9 @@ from numba import jit, types, typeof
 from numba.typed import Dict, List
 from numba.types import DictType
 
-
+# Cast sw to typed array.
+typed_sw = List()
+[typed_sw.append(word) for word in sw]
 # Create empty dict so we can use it's type
 # to create nested dictionaries later.
 D1 = Dict.empty(
@@ -499,11 +501,17 @@ class BWMD():
 
         # Load the raw binary vectors.
         filepath = f"res\\{model}-{dim}.txtc"
-        vectors, self.words = load_vectors(filepath,
+        vectors, words = load_vectors(filepath,
+
+                                # size=20000,
+
                                 expected_dimensions=int(dim),
                                 expected_dtype='bool_', get_words=True,
                                 return_numpy=True)
-        self.vectors = convert_vectors_to_dict(vectors, self.words, return_numba=True)
+        self.vectors = convert_vectors_to_dict(vectors, words, return_numba=True)
+        # Cast words to typed list.
+        self.words = List()
+        [self.words.append(word) for word in words]
 
         # Load the lookup table of dependency distances.
         if with_syntax:
@@ -632,10 +640,14 @@ class BWMD():
                     One document as list of token strings.
                 b : list
                     Another document as list of token strings.
-                vectors :
-                cache :
-                words :
-                dim :
+                vectors : dict
+                    Token to array.
+                cache : dict
+                    Token to token to cosine distance.
+                words : list
+                    List of embedded tokens.
+                dim : int
+                    Size of arrays.
 
             Returns
             ---------
@@ -643,75 +655,44 @@ class BWMD():
                     Unidirectional score.
             '''
             wmd = 0
-            # for i, word_a in enumerate(a):
+            len_a = len(a)
+
             for word_a in a:
 
-                # print(f'Document a, word {i} ...')
+                # TODO: Add enumerate for getting syntax.
+                # TODO: Remember if we want syntax we need to keep sw etc.
+
                 if word_a in stopw or word_a not in words:
                     # Skip stopwords or nonsense words.
+                    # Use counter to control length a.
+                    len_a -= 1
                     continue
                 distances = []
                 for word_b in b:
-                    # print(f'Document b, word {word_b}')
                     if word_b in stopw or word_b not in words:
                         # Skip stopwords or nonsense words.
                         continue
                     try:
-
-                        # if word_b in cache[word_a].keys():
-                            # print('Found in cache ...')
-                        distance = cache[word_a][word_b]                            # CONDITIONAL!!
-                        # elif word_a in cache[word_b].keys():
-                            # print('Found in cache alternative ...')
-                            # distance = cache[word_b][word_a]                                  # CONDITIONAL
+                        # if word_b in cache[word_a]:
+                        distance = cache[word_a][word_b]
+                        # elif word_a in cache[word_b]:
+                            # distance = cache[word_b][word_a]
                         # else:
                             # Otherwise use hamming distance
-                            # print('Getting hamming distance ...')
-                            # distance = hamdist(vectors[word_a], vectors[word_b])    # HAMMING!!!
                             # distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) / dim
-                            # distance = 1
-#######################################################################
-# OLD APPROACH WITH LRU CACHE ... NEED TO COMPENSATE SOMEHOW
-#######################################################################
 
-                        # # Check if either of the words is in the other's table; if
-                        # # so, then we just look it up accordingly.
-                        # # print('Trying to find in the cache ...')
-                        # # print(self.cache.key[word_a])
-                        # if word_b in self.cache.key[word_a]:
-                        #     print('Getting from cache ...')
-                        #     distance = self.cache.get(word_a, word_b)
-                        # elif word_a in self.cache.key[word_b]:
-                        #     print('Getting from cache alternative ...')
-                        #     distance = self.cache.get(word_b, word_a)
-                        # else:
-                        #     # Otherwise use hamming distance
-                        #     # print('Getting hamming distance ...')
-                        #     distance = hamdist(self.vectors[word_a], self.vectors[word_b])
-
-#######################################################################
-# OLD APPROACH WITH LRU CACHE ... NEED TO COMPENSATE SOMEHOW
-#######################################################################
-
-
-                    # except (AttributeError, KeyError):
+                    # Numba can only handle generic exceptions.
                     except Exception:
                         # Means there is no cache ie we are using raw hamming.
                         # Also if the word is not represented in the vocabulary.
-                        # print('Cache error using hamming ...')
-                        # distance = hamdist(vectors[word_a], vectors[word_b])    # HAMMING!!!
-                        distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) / dim
-                        # distance = 1
+                        distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) #/ dim
 
-                    # Divide by dimension to normalize score.
-                    # distances.append(distance / dim)
-                    distances.append(distance)
+                    distances.append(distance / dim)
 
                 distance = min(distances)
                 # try:
                 #     # Try get syntax info, if error assume that object is not
                 #     # configured for getting syntex information.
-                #     print('Getting dependencies ...')
                 #     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
                 #     dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
                 #     # Weighted arithmetic mean.
@@ -726,7 +707,6 @@ class BWMD():
 
 ##########################################################
 
-            # print('Returning unidirectional wmd ...')
             # Divide by length of first text to normalize the score.
             # Length is controlled for stopwords.
 
@@ -735,34 +715,31 @@ class BWMD():
 ################################################
 
             # return wmd / len([word for word in a if not word in sw])
-            return wmd / len(a)
+            return wmd / len_a
 
 ################################################
 # STUPID RETURN JUST TO GET NUMBA TO WORK
 ################################################
 
-        # Get score from both directions and sum to make the
-        # metric bidirectional. Summation determined to be most
-        # effective approach cf. Hamann (2018).
-        # print('Computing first direction ...')
 
-        typed_sw = List()
-        [typed_sw.append(word) for word in sw]
+        # TODO: Clean of stopwords once to make the
+        # computations inside the function as fast
+        # as possible, considering how big these
+        # lists and dictionaries are getting.
 
+
+        # Cast texts to typed arrays for numba.
         typed_a = List()
         [typed_a.append(word) for word in text_a]
         typed_b = List()
         [typed_b.append(word) for word in text_b]
-        # TODO: Cast all texts to numba list before runtime!!!
-        typed_words = List()
-        [typed_words.append(word) for word in self.words]
-
-        # Pass variables to function so numba works.
+        # Get score from both directions and sum to make the
+        # metric bidirectional. Summation determined to be most
+        # effective approach cf. Hamann (2018).
         bwmd = get_distance_unidirectional(typed_a, typed_b,
-                            self.vectors, self.cache, typed_words, self.dim, typed_sw)
-        # print('Computing second direction ...')
-        bwmd += get_distance_unidirectional(typed_b, typed_a,
-                            self.vectors, self.cache, typed_words, self.dim, typed_sw)
+                    self.vectors, self.cache, self.words, self.dim, typed_sw)
+        # bwmd += get_distance_unidirectional(typed_b, typed_a,
+                    # self.vectors, self.cache, self.words, self.dim, typed_sw)
 
         # Divide by two to normalize the score.
         return bwmd / 2

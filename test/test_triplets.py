@@ -43,7 +43,6 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
     # Load all the triplets and clean.
     corpus = []
     print('Loading wikipedia corpus ...')
-    # for i in tqdm(range(20_000)):
     for i in tqdm(range(20_000)):
         try:
             with open(f'res\\datasets\\triplets_\\wikipedia-{i}', 'rb') as f:
@@ -52,35 +51,28 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
         except FileNotFoundError:
             continue
 
-    times = []
+    start = time.time()
     # List to store the errors.
     score = []
     print('Computing score ...')
-    # for triplet in tqdm(corpus):
-    for triplet in corpus:
-        start = time.time()
+    for triplet in tqdm(corpus):
         # Split the texts.
         a, b, c = triplet
         # Get distances for assessment.
         a_b = bwmd.get_distance(a, b)
         a_c = bwmd.get_distance(a, c)
         b_c = bwmd.get_distance(b, c)
+        print(a_b, a_c, b_c)
         # Conditional for scoring
         if a_b < a_c and a_b < b_c:
-            print(a_b, a_c, b_c)
             # Just use a binary scoring method.
             score.append(0)
         else:
             score.append(1)
 
-        end = time.time()
-        times.append((end - start))
-        # print('\n\n')
-
-    print(sum(times) / len(times))
-
+    end = time.time()
     # Return simple average as percentage error.
-    return sum(score) / len(score)
+    return (end - start) / 60, sum(score) / len(score)
 
 
 class TestCase(unittest.TestCase):
@@ -88,21 +80,6 @@ class TestCase(unittest.TestCase):
     Test cases for Stanford triplets
     evaluation task, cf Werner (2019).
     '''
-    def test_wikipedia_hamming_syntax(self):
-        '''
-        '''
-        # TODO: All test cases must use all embeddings.
-        # TODO: Fix issue that some dependencies are not accounted for.
-        # TODO: Figure out why so slow and speed up.
-        # TODO: Time computations.
-        score = evaluate_triplets_task('glove', '512', False, False)
-        print(score)
-
-    def test_wikipedia_hamming_no_syntax(self):
-        '''
-        '''
-        pass
-
     def test_wikipedia_tables_syntax(self):
         '''
         '''
@@ -111,4 +88,8 @@ class TestCase(unittest.TestCase):
     def test_wikipedia_tables_no_syntax(self):
         '''
         '''
-        pass
+        # TODO: Fix issue that some dependencies are not accounted for.
+        time, score = evaluate_triplets_task('glove', '512', False, False)
+        print(str(round(time, 2)), 'min')
+        print(str(score), 'percent error')
+        print()
