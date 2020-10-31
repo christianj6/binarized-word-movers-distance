@@ -46,16 +46,8 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
     # for i in tqdm(range(20_000)):
     for i in tqdm(range(20_000)):
         try:
-            with open(f'res\\datasets\\triplets\\wikipedia-{i}', 'rb') as f:
-                triplet = dill.load(f)
-                # Split the texts.
-                a_b_c = list(map(lambda x: x.split(), triplet))
-                # Clean each tuple.
-                new_tuple = []
-                for item in a_b_c:
-                    # Clean item.
-                    new_tuple.append([word.lower() for word in item if word in bwmd.words])
-                corpus.append(tuple(new_tuple))
+            with open(f'res\\datasets\\triplets_\\wikipedia-{i}', 'rb') as f:
+                corpus.append(dill.load(f))
 
         except FileNotFoundError:
             continue
