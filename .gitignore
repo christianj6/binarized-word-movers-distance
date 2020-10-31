@@ -146,3 +146,4 @@ res/tables/glove
 res/tables/fasttext
 res/tables/word2vec
 res/datasets/triplets
+res/datasets/triplets_
