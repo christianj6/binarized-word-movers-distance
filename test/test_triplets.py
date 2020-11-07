@@ -5,7 +5,13 @@ from bwmd.distance import convert_vectors_to_dict, BWMD
 import dill
 
 
+# TODO: Fix issue that some dependencies are not accounted for.
 # TODO: Documentation justifying the scoring method.
+MODELS = [
+    'glove',
+    'fasttext',
+    'word2vec'
+]
 
 def evaluate_triplets_task(model, dim, syntax, raw_hamming):
     '''
@@ -43,7 +49,7 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
     # Load all the triplets and clean.
     corpus = []
     print('Loading wikipedia corpus ...')
-    for i in tqdm(range(20_000)):
+    for i in tqdm(range(100)):
         try:
             with open(f'res\\datasets\\triplets_\\wikipedia-{i}', 'rb') as f:
                 corpus.append(dill.load(f))
@@ -62,7 +68,6 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
         a_b = bwmd.get_distance(a, b)
         a_c = bwmd.get_distance(a, c)
         b_c = bwmd.get_distance(b, c)
-        print(a_b, a_c, b_c)
         # Conditional for scoring
         if a_b < a_c and a_b < b_c:
             # Just use a binary scoring method.
@@ -82,14 +87,31 @@ class TestCase(unittest.TestCase):
     '''
     def test_wikipedia_tables_syntax(self):
         '''
+        Evaluations on wikipedia triplets data
+        with syntax information.
         '''
-        pass
+        for model in MODELS:
+            time, score = evaluate_triplets_task(model, '512', True, False)
+            print(model)
+            print(str(round(time, 2)), 'minutes')
+            print(str(score), 'percent error')
+            print()
 
     def test_wikipedia_tables_no_syntax(self):
         '''
+        Evaluations on wikipedia triplets data
+        without syntax information.
         '''
-        # TODO: Fix issue that some dependencies are not accounted for.
-        time, score = evaluate_triplets_task('glove', '512', False, False)
-        print(str(round(time, 2)), 'min')
-        print(str(score), 'percent error')
-        print()
+        for model in MODELS:
+            time, score = evaluate_triplets_task('glove', '512', False, False)
+            print(model)
+            print(str(round(time, 2)), 'minutes')
+            print(str(score), 'percent error')
+            print()
+
+    def test_wikipedia_other_metrics(self):
+        '''
+        Evaluations on wikipedia triplets task
+        for other metrics.
+        '''
+        pass
