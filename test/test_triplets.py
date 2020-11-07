@@ -3,10 +3,14 @@ from bwmd.compressor import load_vectors
 from tqdm import tqdm
 from bwmd.distance import convert_vectors_to_dict, BWMD
 import dill
+import time
 
 
 # TODO: Fix issue that some dependencies are not accounted for.
 # TODO: Documentation justifying the scoring method.
+# TODO: First-order function as additional param to the
+# evaluation method.
+
 MODELS = [
     'glove',
     'fasttext',
@@ -39,7 +43,6 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
             of tuples for which the incorrect
             evaluation was made.
     '''
-    import time
     # Initialize BWMD.
     print('Initializing bwmd object ...')
     bwmd = BWMD(model, dim, with_syntax=syntax,
