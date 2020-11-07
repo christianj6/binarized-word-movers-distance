@@ -774,3 +774,37 @@ class BWMD():
 
         # TODO: Multiprocessing.
         # TODO: Try to store some stuff in a cache ie the dependencies.
+
+
+    def get_wcd(self, text_a:list, text_b:list):
+        '''
+        '''
+        # TODO: Just get all embeddings.
+        # TODO: Compute simple average.
+        # TODO: Get cosine distance.
+        pass
+
+
+    def get_wmd(self, text_a:list, text_b:list):
+        '''
+        '''
+        # TODO: Copy gensim implementation.
+        pass
+
+
+    def get_rwmd(self, text_a:list, text_b:list):
+        '''
+        '''
+        # TODO: Pairwise distance matrix.
+        # TODO: Each find minimum matching word
+        # and sum these cosine distances in both
+        # directions.
+        pass
+
+
+    def get_relrwmd(self, text_a:list, text_b:list):
+        '''
+        '''
+        # Basically same as bwmd but without
+        # hamming backup.
+        pass
