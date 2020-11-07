@@ -241,8 +241,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
 
         return output, token_to_centroid
 
-#########################################################################
-#########################################################################
 
     n_partitioning_iterations = 100
     # Convert I to k value.
@@ -264,9 +262,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     print('Time to compute partitionings: ', str(round(end - start, 3)))
     start = time.time()
 
-#########################################################################
-#########################################################################
-
     # Replace vectors with just the words
     # to save some memory.
     vectors = list(vectors.keys())
@@ -276,9 +271,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     for i in tqdm(range(n_partitioning_iterations)):
         with open(f"{partitions_dir}\\{i}", "rb") as f:
             partitioning_iterations.append(dill.load(f))
-
-#########################################################################
-#########################################################################
 
     # For each token, consolidate and save
     # all words associated with that token, according
@@ -298,9 +290,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                 dill.dump(all_words_associated_with_current_token, f)
         except OSError:
             continue
-
-#########################################################################
-#########################################################################
 
     # Get the raw vectors. This will be used to organize
     # the associated tokens according to the more-reliable
@@ -503,7 +492,7 @@ class BWMD():
         filepath = f"res\\{model}-{dim}.txtc"
         vectors, words = load_vectors(filepath,
 
-                                # size=20000,
+                                size=20_000,
 
                                 expected_dimensions=int(dim),
                                 expected_dtype='bool_', get_words=True,
@@ -559,7 +548,7 @@ class BWMD():
                         )
 
         print('Loading all lookup tables ...')
-        for k in tqdm(list(key.keys())):
+        for k in tqdm(list(key.keys())[:20_000]):
             with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
                 # Reformat the words to lowercase.
 
@@ -659,6 +648,8 @@ class BWMD():
 
             for word_a in a:
 
+                # TODO: Optimize computation so we don't need to
+                # iterate over so many values etc.
                 # TODO: Add enumerate for getting syntax.
                 # TODO: Remember if we want syntax we need to keep sw etc.
 
