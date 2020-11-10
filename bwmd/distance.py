@@ -44,15 +44,15 @@ from numba.typed import Dict, List
 from numba.types import DictType
 from pyemd import emd
 
-# Cast sw to typed array.
-typed_sw = List()
-[typed_sw.append(word) for word in sw]
-# Create empty dict so we can use it's type
-# to create nested dictionaries later.
-D1 = Dict.empty(
-                key_type=types.unicode_type,
-                value_type=types.float64
-                )
+# # Cast sw to typed array.
+# typed_sw = List()
+# [typed_sw.append(word) for word in sw]
+# # Create empty dict so we can use it's type
+# # to create nested dictionaries later.
+# D1 = Dict.empty(
+#                 key_type=types.unicode_type,
+#                 value_type=types.float64
+#                 )
 
 def convert_vectors_to_dict(vectors:list, words:list,
                 return_numba:bool=False)->dict:
@@ -612,7 +612,8 @@ class BWMD():
 
 
         @jit(nopython=True)
-        def get_distance_unidirectional(pdist:'np.array')->float:
+        def get_distance_unidirectional(pdist:'np.array',
+                                    depdist:'np.array'=None)->float:
             '''
             Calculate the BWMD in one direction. Needed to
             bootstrap a bidirectional distance as the metric
@@ -622,6 +623,9 @@ class BWMD():
             ---------
                 pdist : np.array
                     Pairwise distance matrix.
+                depdist : np.array
+                    Optional pairwise
+                    syntactic dependency distances.
 
             Returns
             ---------
@@ -632,27 +636,95 @@ class BWMD():
             for i in pdist:
                 wmd += min(i)
 
-            # TODO: Integrate support for syntax.
-            # TODO: Control for stopwords.
+            # TODO: Use indices of matched tokens
+            # to compute syntactic distance.
 
             # Divide by length of first text to normalize the score.
             return wmd / pdist.shape[0]
 
+        param = {}
+        paramT = {}
+        # If syntax to be included, get dependencies
+        # before removing stopwords.
+        try:
+            # Try to access attr to see if an error occurs.
+            self.dependency_distances
+            # Get the dependencies.
+            dep_a = get_dependencies(text_a)
+            dep_b = get_dependencies(text_b)
+
+        except AttributeError:
+            # If we can't access the distance table,
+            # we assume the object was not configured for syntax.
+            pass
+
+        # Create a mask for removing stopwords.
+        mask_a = [False for a in text_a if a in sw else True]
+        mask_b = [False for b in text_b if b in sw else True]
+        # Update the syntax array to account for
+        # the removed stopwords.
+        if dep_a:
+            # Create a distance matrix for
+            # the dependencies.
+            depdist = self.get_pairwise_distance_matrix(
+                np.array(dep_a)[mask_a],
+                np.array(dep_b)[mask_b],
+                dist=self.dependency_distance(),
+                default=self.default_maximum_value(default=1.0)
+            )
+            # Messy technique to pass these as
+            # optional kwargs.
+            param['depdist': depdist]
+            paramT['depdist': depdist.T]
+
         pdist = self.get_pairwise_distance_matrix(
-            text_a,
-            text_b,
+            np.array(text_a)[mask_a],
+            np.array(text_b)[mask_b],
             dist=self.related_word_distance_lookup(),
             default=self.hamming_distance()
         )
+
         # Get score from both directions and sum to make the
         # metric bidirectional. Summation determined to be most
         # effective approach cf. Hamann (2018).
-        bwmd = get_distance_unidirectional(pdist)
+        bwmd = get_distance_unidirectional(pdist, **param)
         # Use transpose to get distance in other direction.
-        bwmd += get_distance_unidirectional(pdist.T)
+        bwmd += get_distance_unidirectional(pdist.T, **paramT)
 
         # Divide by two to normalize the score.
         return bwmd / 2
+
+
+    def dependency_distance(self):
+        '''
+        Decorator to return dependency
+        distances between dependency tags.
+        '''
+        def distance(a:str, b:str):
+            '''
+            Enclosed function for
+            the distance lookup.
+
+            Parameters
+            ---------
+                a : str
+                    First dependency.
+                b : str
+                    Second dependency.
+
+            Returns
+            --------
+                distance : float
+                    Weighted graph distance.
+            '''
+            try:
+                # Try lookup.
+                return self.dependency_distances[a][b]
+            except KeyError:
+                # Otherwise None for error handling.
+                return None
+
+        return distance
 
 
     def pairwise(self, corpus:list)->'np.array':
@@ -935,7 +1007,7 @@ class BWMD():
             # Euclidean distance.
             dist=lambda a, b: sqrt(np_sum((self.vectors[a] - self.vectors[b])**2)),
             # Default nan value.
-            default=lambda a, b: 0
+            default=lambda a, b: 1
         )
         # Get distance in both directions to render the
         # distance a true metric. Necessary because we are not
