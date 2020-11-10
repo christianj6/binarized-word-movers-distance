@@ -1,3 +1,19 @@
+'''
+OVERVIEW
+This test module contains methods for
+evaluating the so-called Binarized
+Word Mover's Distance in comparison
+with other relevant metrics and with
+different object configurations. The scoring
+procedure is taken from Werner (2018),
+whereby triplets of wikipedia articles are
+evaluated for distance. If the distance between
+the first two articles in a triplet is the lowest,
+this qualifies as a correct classification. Further
+details on the exact scoring mechanism for
+obtaining the 'percent error' can be found
+in the evaluate_triplets_task() function.
+'''
 import unittest
 from bwmd.compressor import load_vectors
 from tqdm import tqdm
@@ -7,19 +23,19 @@ import time
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
 import logging
+# Create a simple logger.
 logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M',
                     filename='triplets.log',
                     filemode='a')
 
-# TODO: Documentation justifying the scoring method.
 
-N_SAMPLES = 20
+N_SAMPLES = 300
 MODELS = [
     'glove',
-    # 'fasttext',
-    # 'word2vec'
+    'fasttext',
+    'word2vec'
 ]
 
 def load_wikipedia_corpus(n_samples):
@@ -122,7 +138,7 @@ class TestCase(unittest.TestCase):
             compute_time, score = evaluate_triplets_task(model, '512', True, False)
             logging.warning(f"BWMD {model}+syntax - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
-            print(model)
+            print(model, '+syntax')
             print(str(round(compute_time, 4)), 'minutes/iter')
             print(str(score), 'percent error')
             print()
@@ -193,7 +209,7 @@ class TestCase(unittest.TestCase):
         run_test_single_metric(corpus, bwmd.get_wmd, "Word Mover's Distance")
         run_test_single_metric(corpus, bwmd.get_rwmd, "Relaxed Word Mover's Distance")
         # Create a new BWMD object for the related distance,
-        # because it uses a lookup table rather than the actual distance.
+        # because it uses a lookup table rather than the computed distances.
         bwmd = BWMD('glove', '512', with_syntax=False,
                         raw_hamming=False,
                         full_cache=True)

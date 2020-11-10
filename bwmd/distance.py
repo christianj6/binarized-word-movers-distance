@@ -495,7 +495,7 @@ class BWMD():
                         # Create intelligent cache from lookup tables.
                         self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
-            return_numba = True
+            return_numba = False
 
         else:
             # We just want the real-valued vectors.
@@ -513,8 +513,8 @@ class BWMD():
                                 return_numpy=True)
         self.vectors = convert_vectors_to_dict(vectors, words, return_numba=return_numba)
         # Cast words to typed list.
-        self.words = List()
-        [self.words.append(word) for word in words]
+        self.words = set(words)
+        # [self.words.append(word) for word in words]
 
         # Load the lookup table of dependency distances.
         if with_syntax:
@@ -555,25 +555,16 @@ class BWMD():
         # TODO: Clean the original files.
 
         key = {token: [word.lower() for word,_ in tuples] for token, tuples in key.items()}
-        # Create the outer dictionary.
-        lookup_dict = Dict.empty(
-                        key_type=types.unicode_type,
-                        value_type=typeof(D1)
-                        )
+        # Create outer dictionary.
+        lookup_dict = {}
 
         print('Loading all lookup tables ...')
         for k in tqdm(list(key.keys())[:20_000]):
             with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
                 # Reformat the words to lowercase.
-                updated_dict = {word.lower(): value for word, value in dill.load(f)}
+                updated_dict = {word.lower(): value for (word,_), value in dill.load(f).items()}
                 # Make inner dictionary.
-                lookup_dict[k.lower()] = Dict.empty(
-                                                key_type=types.unicode_type,
-                                                value_type=types.float32
-                                                )
-                # Add values to inner dictionary.
-                for w,v in updated_dict.items():
-                    lookup_dict[k.lower()][w] = v
+                lookup_dict[k.lower()] = updated_dict
 
         return lookup_dict
 
@@ -627,7 +618,8 @@ class BWMD():
 
         # @jit(nopython=True)
         def get_distance_unidirectional(pdist:'np.array',
-                                    depdist:'np.array'=None)->float:
+                                    depdist:'np.array'=None,
+                                    syntax:bool=False)->float:
             '''
             Calculate the BWMD in one direction. Needed to
             bootstrap a bidirectional distance as the metric
@@ -650,13 +642,14 @@ class BWMD():
             for i, array in enumerate(pdist):
                 j = np.argmin(array)
                 # Try to get syntax distance, otherwise just use semantic distance.
-                try:
+                if syntax:
                     # Some dummy values for a weighted average.
 
                     # TODO: Make weighted average variables more exposed.
 
-                    wmd += 0.75 * pdist[i][j] + 0.25 * depdist[i][j]
-                except Exception:
+                    wmd += 0.8 * pdist[i][j] + 0.2 * depdist[i][j]
+
+                else:
                     wmd += pdist[i][j]
 
             # Divide by length of first text to normalize the score.
@@ -679,8 +672,8 @@ class BWMD():
             pass
 
         # Create a mask for removing stopwords.
-        mask_a = [False if a in sw else True for a in text_a]
-        mask_b = [False if b in sw else True for b in text_b]
+        mask_a = [False if a in sw or not a in self.words else True for a in text_a]
+        mask_b = [False if b in sw or not b in self.words else True for b in text_b]
         # Update the syntax array to account for
         # the removed stopwords.
         try:
@@ -698,8 +691,10 @@ class BWMD():
             # optional kwargs.
             param['depdist'] = depdist
             paramT['depdist'] = depdist.T
+            param['syntax'], paramT['syntax'] = True, True
 
         except AttributeError:
+            # Make a dummy array so numba can compile it.
             pass
 
         pdist = self.get_pairwise_distance_matrix(
@@ -807,11 +802,8 @@ class BWMD():
                 distance : float
                     Hamming distance.
             '''
-            try:
-                return np.count_nonzero(self.vectors[a] \
+            return np.count_nonzero(self.vectors[a] \
                         != self.vectors[b]) / self.dim
-            except KeyError:
-                return 1
 
         return distance
 
