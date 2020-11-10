@@ -6,12 +6,16 @@ import dill
 import time
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-
+import logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename='triplets.log',
+                    filemode='a')
 
 # TODO: Documentation justifying the scoring method.
-# TODO: First-order function as additional param to the
-# evaluation method.
-N_SAMPLES = 10
+
+N_SAMPLES = 20
 MODELS = [
     'glove',
     # 'fasttext',
@@ -116,6 +120,7 @@ class TestCase(unittest.TestCase):
         '''
         for model in MODELS:
             compute_time, score = evaluate_triplets_task(model, '512', True, False)
+            logging.info(f"{model}+syntax - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
             print(str(round(compute_time, 2)), 'minutes/iter')
@@ -129,6 +134,7 @@ class TestCase(unittest.TestCase):
         '''
         for model in MODELS:
             compute_time, score = evaluate_triplets_task('glove', '512', False, False)
+            logging.info(f"{model} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
             print(str(round(compute_time, 2)), 'minutes/iter')
@@ -168,6 +174,7 @@ class TestCase(unittest.TestCase):
             # Just print the results.
             print()
             print(name)
+            logging.info(f"{name} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print(str(round(compute_time, 4)), 'minutes/iter')
             print(str(score), 'percent error')
             print()
@@ -185,7 +192,6 @@ class TestCase(unittest.TestCase):
         run_test_single_metric(corpus, bwmd.get_wcd, 'Word Centroid Distance')
         run_test_single_metric(corpus, bwmd.get_wmd, "Word Mover's Distance")
         run_test_single_metric(corpus, bwmd.get_rwmd, "Relaxed Word Mover's Distance")
-
         # Create a new BWMD object for the related distance,
         # because it uses a lookup table rather than the actual distance.
         bwmd = BWMD('glove', '512', with_syntax=False,
