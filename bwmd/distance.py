@@ -928,26 +928,6 @@ class BWMD():
             distance : float
                 Relaxed word mover's distance.
         '''
-        def distance_unidirectional(pdist:'np.array'):
-            '''
-            Get minimum distance in one direction.
-
-            Parameters
-            ---------
-                pdist : np.array
-                    Pairwise distance matrix.
-
-            Returns
-            ---------
-                distance : float
-                    RWMD.
-            '''
-            d = 0
-            for i in pdist:
-                d += min(i)
-
-            return d
-
         # Pairwise distance matrix.
         pdist = self.get_pairwise_distance_matrix(
             text_a,
@@ -962,11 +942,33 @@ class BWMD():
         # optimizing a true flow-matrix problem as with
         # the wmd, but rather transferring all mass
         # to the minimum token.
-        rwmd = distance_unidirectional(pdist)
+        rwmd = self.min_distance_unidirectional(pdist)
         # Transpose to get other direction.
-        rwmd += distance_unidirectional(pdist.T)
+        rwmd += self.min_distance_unidirectional(pdist.T)
 
         return rwmd
+
+
+    @staticmethod
+    def min_distance_unidirectional(pdist:'np.array'):
+        '''
+        Get minimum distance in one direction.
+
+        Parameters
+        ---------
+            pdist : np.array
+                Pairwise distance matrix.
+
+        Returns
+        ---------
+            distance : float
+                RWMD.
+        '''
+        d = 0
+        for i in pdist:
+            d += min(i)
+
+        return d
 
 
     def get_relrwmd(self, text_a:list, text_b:list):
@@ -986,6 +988,17 @@ class BWMD():
             distance : float
                 Related relaxed word mover's distance.
         '''
-        # Basically same as bwmd but without
-        # hamming backup.
-        pass
+        # Pairwise distance matrix.
+        pdist = self.get_pairwise_distance_matrix(
+            text_a,
+            text_b,
+            # Precomputed lookup cf Werner.
+            dist=self.related_word_distance_lookup(),
+            # Default maximum value cf Werner (cMax-value)
+            default=self.default_maximum_value(default=1.0)
+        )
+        relrwmd = self.min_distance_unidirectional(pdist)
+        # Transpose to get other direction.
+        relrwmd += self.min_distance_unidirectional(pdist.T)
+
+        return relrwmd
