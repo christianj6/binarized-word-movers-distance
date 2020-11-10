@@ -39,20 +39,21 @@ import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-# from numba import jit, types, typeof
-# from numba.typed import Dict, List
+from numba import jit, types, typeof
+from numba.typed import Dict, List
 # from numba.types import DictType
 from pyemd import emd
+from gensim.corpora.dictionary import Dictionary
 
 # # Cast sw to typed array.
 # typed_sw = List()
 # [typed_sw.append(word) for word in sw]
 # # Create empty dict so we can use it's type
 # # to create nested dictionaries later.
-# D1 = Dict.empty(
-#                 key_type=types.unicode_type,
-#                 value_type=types.float64
-#                 )
+D1 = Dict.empty(
+                key_type=types.unicode_type,
+                value_type=types.float64
+                )
 
 def convert_vectors_to_dict(vectors:list, words:list,
                 return_numba:bool=False)->dict:
@@ -452,7 +453,7 @@ class BWMD():
                 self.cache.popitem(last=False)
 
 
-    def __init__(self, model:str, dim:str,
+    def __init__(self, model:str, dim:str=None,
                     with_syntax:bool=True,
                     raw_hamming:bool=False,
                     full_cache:bool=False)->None:
@@ -478,26 +479,39 @@ class BWMD():
                 on the machine and number of computed tables / their
                 individual sizes.
         '''
-        self.dim = int(dim)
-        if not raw_hamming:
-            with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
-                if full_cache:
-                    # Load all tables into a single cache.
-                    self.cache = self.load_all_lookup_tables(dill.load(f), model, dim)
-                else:
-                    # Create intelligent cache from lookup tables.
-                    self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
-        # Load the raw binary vectors.
-        filepath = f"res\\{model}-{dim}.txtc"
+
+        if dim != None:
+            self.dim = int(dim)
+            # Load the raw binary vectors.
+            filepath = f"res\\{model}-{dim}.txtc"
+            dtype = 'bool_'
+            if not raw_hamming:
+                with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
+                    if full_cache:
+                        # Load all tables into a single cache.
+                        self.cache = self.load_all_lookup_tables(dill.load(f), model, dim)
+                    else:
+                        # Create intelligent cache from lookup tables.
+                        self.cache = self.LRUCache(2000, dill.load(f), model, dim)
+
+            return_numba = True
+
+        else:
+            # We just want the real-valued vectors.
+            filepath = f"res\\{model}.txt"
+            self.dim, dim = 300, 300
+            dtype = 'float32'
+            return_numba = False
+
         vectors, words = load_vectors(filepath,
 
                                 size=20_000,
 
                                 expected_dimensions=int(dim),
-                                expected_dtype='bool_', get_words=True,
+                                expected_dtype=dtype, get_words=True,
                                 return_numpy=True)
-        self.vectors = convert_vectors_to_dict(vectors, words, return_numba=True)
+        self.vectors = convert_vectors_to_dict(vectors, words, return_numba=return_numba)
         # Cast words to typed list.
         self.words = List()
         [self.words.append(word) for word in words]
@@ -555,7 +569,7 @@ class BWMD():
                 # Make inner dictionary.
                 lookup_dict[k.lower()] = Dict.empty(
                                                 key_type=types.unicode_type,
-                                                value_type=types.float64
+                                                value_type=types.float32
                                                 )
                 # Add values to inner dictionary.
                 for w,v in updated_dict.items():
@@ -633,17 +647,17 @@ class BWMD():
                     Unidirectional score.
             '''
             wmd = 0
-            for i in pdist:
-                j = np.amin(i)
+            for i, array in enumerate(pdist):
+                j = np.argmin(array)
                 # Try to get syntax distance, otherwise just use semantic distance.
                 try:
                     # Some dummy values for a weighted average.
 
                     # TODO: Make weighted average variables more exposed.
 
-                    wmd += 0.75 * pdist[i, j] + 0.25 * depdist[i, j]
+                    wmd += 0.75 * pdist[i][j] + 0.25 * depdist[i][j]
                 except Exception:
-                    wmd += pdist[i, j]
+                    wmd += pdist[i][j]
 
             # Divide by length of first text to normalize the score.
             return wmd / pdist.shape[0]
@@ -665,11 +679,13 @@ class BWMD():
             pass
 
         # Create a mask for removing stopwords.
-        mask_a = [False for a in text_a if a in sw else True]
-        mask_b = [False for b in text_b if b in sw else True]
+        mask_a = [False if a in sw else True for a in text_a]
+        mask_b = [False if b in sw else True for b in text_b]
         # Update the syntax array to account for
         # the removed stopwords.
-        if dep_a:
+        try:
+            # Try to access attr to see if an error occurs.
+            self.dependency_distances
             # Create a distance matrix for
             # the dependencies.
             depdist = self.get_pairwise_distance_matrix(
@@ -680,8 +696,11 @@ class BWMD():
             )
             # Messy technique to pass these as
             # optional kwargs.
-            param['depdist': depdist]
-            paramT['depdist': depdist.T]
+            param['depdist'] = depdist
+            paramT['depdist'] = depdist.T
+
+        except AttributeError:
+            pass
 
         pdist = self.get_pairwise_distance_matrix(
             np.array(text_a)[mask_a],
@@ -788,8 +807,11 @@ class BWMD():
                 distance : float
                     Hamming distance.
             '''
-            return np.count_nonzero(self.vectors[a] \
+            try:
+                return np.count_nonzero(self.vectors[a] \
                         != self.vectors[b]) / self.dim
+            except KeyError:
+                return 1
 
         return distance
 
@@ -961,7 +983,7 @@ class BWMD():
         vocab_len = len(dictionary)
 
         def nbow(document):
-            d = zeros(vocab_len, dtype=double)
+            d = np.zeros(vocab_len, dtype=np.double)
             nbow = dictionary.doc2bow(document)  # Word frequencies.
             doc_len = len(document)
             for idx, freq in nbow:
@@ -973,13 +995,13 @@ class BWMD():
         text_b_set = set(text_b)
 
         # Compute euclidean distance matrix.
-        distance_matrix = zeros((vocab_len, vocab_len), dtype=double)
+        distance_matrix = np.zeros((vocab_len, vocab_len), dtype=np.double)
         for i, t1 in dictionary.items():
             for j, t2 in dictionary.items():
                 if not t1 in text_a_set or not t2 in text_b_set:
                     continue
                 # Compute Euclidean distance between word vectors.
-                distance_matrix[i, j] = sqrt(np_sum((self.vectors[t1] - self.vectors[t2])**2))
+                distance_matrix[i, j] = np.sqrt(np.sum((self.vectors[t1] - self.vectors[t2])**2))
 
         # Compute nBOW representation of documents.
         d1 = nbow(text_a)
@@ -1011,7 +1033,7 @@ class BWMD():
             text_a,
             text_b,
             # Euclidean distance.
-            dist=lambda a, b: sqrt(np_sum((self.vectors[a] - self.vectors[b])**2)),
+            dist=lambda a, b: np.sqrt(np.sum((self.vectors[a] - self.vectors[b])**2)),
             # Default nan value.
             default=lambda a, b: 1
         )
