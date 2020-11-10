@@ -638,8 +638,6 @@ class BWMD():
             # Divide by length of first text to normalize the score.
             return wmd / pdist.shape[0]
 
-            for word_a in a:
-
         pdist = self.get_pairwise_distance_matrix(
             text_a,
             text_b,
@@ -915,16 +913,78 @@ class BWMD():
 
     def get_rwmd(self, text_a:list, text_b:list):
         '''
+        Get relaxed word mover's distance
+        cf Kusner (2016).
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Relaxed word mover's distance.
         '''
-        # TODO: Pairwise distance matrix.
-        # TODO: Each find minimum matching word
-        # and sum these cosine distances in both
-        # directions.
-        pass
+        def distance_unidirectional(pdist:'np.array'):
+            '''
+            Get minimum distance in one direction.
+
+            Parameters
+            ---------
+                pdist : np.array
+                    Pairwise distance matrix.
+
+            Returns
+            ---------
+                distance : float
+                    RWMD.
+            '''
+            d = 0
+            for i in pdist:
+                d += min(i)
+
+            return d
+
+        # Pairwise distance matrix.
+        pdist = self.get_pairwise_distance_matrix(
+            text_a,
+            text_b,
+            # Euclidean distance.
+            dist=lambda a, b: sqrt(np_sum((self.vectors[a] - self.vectors[b])**2)),
+            # Default nan value.
+            default=lambda a, b: 0
+        )
+        # Get distance in both directions to render the
+        # distance a true metric. Necessary because we are not
+        # optimizing a true flow-matrix problem as with
+        # the wmd, but rather transferring all mass
+        # to the minimum token.
+        rwmd = distance_unidirectional(pdist)
+        # Transpose to get other direction.
+        rwmd += distance_unidirectional(pdist.T)
+
+        return rwmd
 
 
     def get_relrwmd(self, text_a:list, text_b:list):
         '''
+        Get related relaxed word movers distance
+        cf Werner 2018.
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Related relaxed word mover's distance.
         '''
         # Basically same as bwmd but without
         # hamming backup.
