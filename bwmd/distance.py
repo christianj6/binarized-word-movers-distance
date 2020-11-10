@@ -944,8 +944,8 @@ class BWMD():
                 Word centroid distance.
         '''
         # Get all the embeddings.
-        a_emb = [self.vectors[a] for a in text_a]
-        b_emb = [self.vectors[b] for b in text_b]
+        a_emb = [self.vectors[a] for a in text_a if a in self.vectors]
+        b_emb = [self.vectors[b] for b in text_b if b in self.vectors]
         # Return distance between mean embeddings.
         return distance_scipy.cosine(
                 np.mean(a_emb, axis=0),
