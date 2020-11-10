@@ -324,7 +324,6 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     for token, vector in tqdm(vectors.items()):
         # words_most_associated_with_current_token = []
         try:
-
             # Compute and save the cosine distances for the output tables.
             words = list(map(lambda x: (x[0], distance_scipy.cosine(vectors[token],
                                 vectors[x[0]])), most_associated_words_each_token[token]))
@@ -551,9 +550,6 @@ class BWMD():
         for k in tqdm(list(key.keys())[:20_000]):
             with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
                 # Reformat the words to lowercase.
-
-                # TODO: Clean the original files.
-
                 updated_dict = {word.lower(): value for word, value in dill.load(f)}
                 # Make inner dictionary.
                 lookup_dict[k.lower()] = Dict.empty(
@@ -615,9 +611,7 @@ class BWMD():
 
 
         @jit(nopython=True)
-        def get_distance_unidirectional(a:list, b:list,
-                                vectors:dict, cache:dict,
-                                    words:list, dim:int, stopw:list)->float:
+        def get_distance_unidirectional(pdist:'np.array')->float:
             '''
             Calculate the BWMD in one direction. Needed to
             bootstrap a bidirectional distance as the metric
@@ -625,18 +619,8 @@ class BWMD():
 
             Parameters
             ---------
-                a : list
-                    One document as list of token strings.
-                b : list
-                    Another document as list of token strings.
-                vectors : dict
-                    Token to array.
-                cache : dict
-                    Token to token to cosine distance.
-                words : list
-                    List of embedded tokens.
-                dim : int
-                    Size of arrays.
+                pdist : np.array
+                    Pairwise distance matrix.
 
             Returns
             ---------
@@ -644,93 +628,29 @@ class BWMD():
                     Unidirectional score.
             '''
             wmd = 0
-            len_a = len(a)
+            for i in pdist:
+                wmd += min(i)
+
+            # TODO: Integrate support for syntax.
+            # TODO: Control for stopwords.
+
+            # Divide by length of first text to normalize the score.
+            return wmd / pdist.shape[0]
 
             for word_a in a:
 
-                # TODO: Optimize computation so we don't need to
-                # iterate over so many values etc.
-                # TODO: Add enumerate for getting syntax.
-                # TODO: Remember if we want syntax we need to keep sw etc.
-
-                if word_a in stopw or word_a not in words:
-                    # Skip stopwords or nonsense words.
-                    # Use counter to control length a.
-                    len_a -= 1
-                    continue
-                distances = []
-                for word_b in b:
-                    if word_b in stopw or word_b not in words:
-                        # Skip stopwords or nonsense words.
-                        continue
-                    try:
-                        # if word_b in cache[word_a]:
-                        distance = cache[word_a][word_b]
-                        # elif word_a in cache[word_b]:
-                            # distance = cache[word_b][word_a]
-                        # else:
-                            # Otherwise use hamming distance
-                            # distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) / dim
-
-                    # Numba can only handle generic exceptions.
-                    except Exception:
-                        # Means there is no cache ie we are using raw hamming.
-                        # Also if the word is not represented in the vocabulary.
-                        distance = np.count_nonzero(vectors[word_a] != vectors[word_b]) #/ dim
-
-                    distances.append(distance / dim)
-
-                distance = min(distances)
-                # try:
-                #     # Try get syntax info, if error assume that object is not
-                #     # configured for getting syntex information.
-                #     a_dep, b_dep = get_dependencies(a), get_dependencies(b)
-                #     dependency_distance = self.dependency_distances[a_dep[i]][b_dep[distances.index(distance)]]
-                #     # Weighted arithmetic mean.
-                #     wmd += 0.75*distance + 0.25*dependency_distance
-                # except (TypeError, AttributeError):
-                #     # Error if not configured for syntax.
-                #     wmd += distance
-
-##########################################################
-
-                wmd += distance
-
-##########################################################
-
-            # Divide by length of first text to normalize the score.
-            # Length is controlled for stopwords.
-
-################################################
-# STUPID RETURN JUST TO GET NUMBA TO WORK
-################################################
-
-            # return wmd / len([word for word in a if not word in sw])
-            return wmd / len_a
-
-################################################
-# STUPID RETURN JUST TO GET NUMBA TO WORK
-################################################
-
-
-        # TODO: Clean of stopwords once to make the
-        # computations inside the function as fast
-        # as possible, considering how big these
-        # lists and dictionaries are getting.
-
-
-        # Cast texts to typed arrays for numba.
-        typed_a = List()
-        [typed_a.append(word) for word in text_a]
-        typed_b = List()
-        [typed_b.append(word) for word in text_b]
+        pdist = self.get_pairwise_distance_matrix(
+            text_a,
+            text_b,
+            dist=self.related_word_distance_lookup(),
+            default=self.hamming_distance()
+        )
         # Get score from both directions and sum to make the
         # metric bidirectional. Summation determined to be most
         # effective approach cf. Hamann (2018).
-        bwmd = get_distance_unidirectional(typed_a, typed_b,
-                    self.vectors, self.cache, self.words, self.dim, typed_sw)
-        # bwmd += get_distance_unidirectional(typed_b, typed_a,
-                    # self.vectors, self.cache, self.words, self.dim, typed_sw)
+        bwmd = get_distance_unidirectional(pdist)
+        # Use transpose to get distance in other direction.
+        bwmd += get_distance_unidirectional(pdist.T)
 
         # Divide by two to normalize the score.
         return bwmd / 2
