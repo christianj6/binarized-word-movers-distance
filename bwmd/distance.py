@@ -760,11 +760,151 @@ class BWMD():
 
             matrix.append(distances)
 
+        # TODO: Multiprocessing.
+        # TODO: Try to store some stuff in a cache ie the dependencies.
+
         # Pairwise distance matrix.
         return matrix
 
-        # TODO: Multiprocessing.
-        # TODO: Try to store some stuff in a cache ie the dependencies.
+
+    def hamming_distance(self):
+        '''
+        Decorator to return
+        hamming distance between
+        two word vectors.
+        '''
+        def distance(a:str, b:str):
+            '''
+            Enclosed function
+            for returing the
+            hamming distance.
+
+            Parameters
+            ---------
+                a : str
+                    First token.
+                b : str
+                    Second token.
+
+            Returns
+            --------
+                distance : float
+                    Hamming distance.
+            '''
+            return np.count_nonzero(self.vectors[a] \
+                        != self.vectors[b]) / self.dim
+
+        return distance
+
+
+    def default_maximum_value(self, default:float=1.0):
+        '''
+        Decorator for returning a default
+        maximum value.
+        '''
+        def distance(a:str, b:str):
+            '''
+            Enclosed function
+            for returing the default.
+
+            Parameters
+            ---------
+                a : str
+                    First token.
+                b : str
+                    Second token.
+
+            Returns
+            --------
+                default : float
+                    Default value.
+            '''
+            return default
+
+        return distance
+
+
+    def related_word_distance_lookup(self):
+        '''
+        Decorator to lookup the distance between related
+        words using a precomputed
+        lookup table of cosine distances. If the
+        value cannot be found, function returns
+        None.
+        '''
+        def distance(a:str, b:str):
+            '''
+            Enclosed function for
+            the distance lookup.
+
+            Parameters
+            ---------
+                a : str
+                    First token.
+                b : str
+                    Second token.
+
+            Returns
+            --------
+                distance : float
+                    Cosine distance.
+            '''
+            try:
+                # Try lookup.
+                return self.cache[a][b]
+            except KeyError:
+                # Otherwise None for error handling.
+                return None
+
+        return distance
+
+
+    @staticmethod
+    def get_pairwise_distance_matrix(text_a:list, text_b:list,
+                            dist:'Function', default:'Function')->'np.array':
+        '''
+        Compute a pairwise distance matrix over
+        a series of tokens, using a custom
+        distance function.
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+            dist : Function
+                Function for computing
+                the distance between
+                two tokens.
+            default : Function
+                Default function for
+                returning a distance
+                value when a distance
+                cannot be returned.
+
+        Returns
+        ---------
+            matrix : np.array
+                Pairwise distance
+                matrix.
+        '''
+        m, n = len(text_a), len(text_b)
+        # Create empty array of appropriate structure.
+        pdist = np.zeros((m, n))
+        # Iterate over tokens, creating
+        # an m*n array.
+        for i, a in enumerate(text_a):
+            for j, b in enumerate(text_b):
+                # Try to get a real-valued distance.
+                d = dist(a, b)
+                if not d:
+                    # If a nan value is returned, use default.
+                    d = default(a, b)
+
+                pdist[i, j] = d
+
+        return pdist
 
 
     def get_wcd(self, text_a:list, text_b:list):
