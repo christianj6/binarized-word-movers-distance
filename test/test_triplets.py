@@ -7,7 +7,7 @@ import time
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
 import logging
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M',
                     filename='triplets.log',
@@ -120,10 +120,10 @@ class TestCase(unittest.TestCase):
         '''
         for model in MODELS:
             compute_time, score = evaluate_triplets_task(model, '512', True, False)
-            logging.info(f"{model}+syntax - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
+            logging.warning(f"BWMD {model}+syntax - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
-            print(str(round(compute_time, 2)), 'minutes/iter')
+            print(str(round(compute_time, 4)), 'minutes/iter')
             print(str(score), 'percent error')
             print()
 
@@ -134,10 +134,10 @@ class TestCase(unittest.TestCase):
         '''
         for model in MODELS:
             compute_time, score = evaluate_triplets_task('glove', '512', False, False)
-            logging.info(f"{model} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
+            logging.warning(f"BWMD {model} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
-            print(str(round(compute_time, 2)), 'minutes/iter')
+            print(str(round(compute_time, 4)), 'minutes/iter')
             print(str(score), 'percent error')
             print()
 
@@ -156,7 +156,7 @@ class TestCase(unittest.TestCase):
             for triplet in tqdm(corpus):
                 # Split the texts and remove unattested tokens.
                 a, b, c = tuple(map(lambda x: [tok for tok in x if \
-                                 tok in bwmd.vectors or tok in sw], triplet))
+                                 tok in bwmd.vectors and tok not in sw], triplet))
                 # Get distances for assessment.
                 a_b = metric(a, b)
                 a_c = metric(a, c)
@@ -174,7 +174,7 @@ class TestCase(unittest.TestCase):
             # Just print the results.
             print()
             print(name)
-            logging.info(f"{name} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
+            logging.warning(f"{name} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print(str(round(compute_time, 4)), 'minutes/iter')
             print(str(score), 'percent error')
             print()
