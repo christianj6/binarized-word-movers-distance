@@ -829,15 +829,46 @@ class BWMD():
 
     def get_wcd(self, text_a:list, text_b:list):
         '''
+        Get word-centroid distance
+        cf. Kusner (2016).
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Word centroid distance.
         '''
-        # TODO: Just get all embeddings.
-        # TODO: Compute simple average.
-        # TODO: Get cosine distance.
-        pass
+        # Get all the embeddings.
+        a_emb = [self.vectors[a] for a in text_a]
+        b_emb = [self.vectors[b] for b in text_b]
+        # Return distance between mean embeddings.
+        return distance_scipy.cosine(
+                np.mean(a_emb, axis=0),
+                np.mean(b_emb, axis=0)
+            )
 
 
     def get_wmd(self, text_a:list, text_b:list):
         '''
+        Get word-movers distance cf. Kusner (2016).
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Word mover's distance.
         '''
         # TODO: Copy gensim implementation.
         pass
