@@ -42,6 +42,7 @@ sw = stopwords.words("english")
 from numba import jit, types, typeof
 from numba.typed import Dict, List
 from numba.types import DictType
+from pyemd import emd
 
 # Cast sw to typed array.
 typed_sw = List()
@@ -857,6 +858,15 @@ class BWMD():
     def get_wmd(self, text_a:list, text_b:list):
         '''
         Get word-movers distance cf. Kusner (2016).
+        This is basically a copy of the gensim
+        implementation, citations below:
+
+        .. Ofir Pele and Michael Werman, "A linear time histogram metric for improved SIFT matching".
+        .. Ofir Pele and Michael Werman, "Fast and robust earth mover's distances".
+        .. Matt Kusner et al. "From Word Embeddings To Document Distances".
+
+        [Source]
+        https://tedboy.github.io/nlps/_modules/gensim/models/word2vec.html#Word2Vec.wmdistance
 
         Parameters
         ---------
@@ -870,8 +880,37 @@ class BWMD():
             distance : float
                 Word mover's distance.
         '''
-        # TODO: Copy gensim implementation.
-        pass
+        # Create dictionary necessary for nbow representation.
+        dictionary = Dictionary(documents=[text_a, text_b])
+        vocab_len = len(dictionary)
+
+        def nbow(document):
+            d = zeros(vocab_len, dtype=double)
+            nbow = dictionary.doc2bow(document)  # Word frequencies.
+            doc_len = len(document)
+            for idx, freq in nbow:
+                d[idx] = freq / float(doc_len)  # Normalized word frequencies.
+            return d
+
+        # Sets for faster look-up.
+        text_a_set = set(text_a)
+        text_b_set = set(text_b)
+
+        # Compute euclidean distance matrix.
+        distance_matrix = zeros((vocab_len, vocab_len), dtype=double)
+        for i, t1 in dictionary.items():
+            for j, t2 in dictionary.items():
+                if not t1 in text_a_set or not t2 in text_b_set:
+                    continue
+                # Compute Euclidean distance between word vectors.
+                distance_matrix[i, j] = sqrt(np_sum((self.vectors[t1] - self.vectors[t2])**2))
+
+        # Compute nBOW representation of documents.
+        d1 = nbow(text_a)
+        d2 = nbow(text_b)
+
+        # Compute WMD.
+        return emd(d1, d2, distance_matrix)
 
 
     def get_rwmd(self, text_a:list, text_b:list):
