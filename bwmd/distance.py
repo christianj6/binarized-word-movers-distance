@@ -634,10 +634,16 @@ class BWMD():
             '''
             wmd = 0
             for i in pdist:
-                wmd += min(i)
+                j = np.amin(i)
+                # Try to get syntax distance, otherwise just use semantic distance.
+                try:
+                    # Some dummy values for a weighted average.
 
-            # TODO: Use indices of matched tokens
-            # to compute syntactic distance.
+                    # TODO: Make weighted average variables more exposed.
+
+                    wmd += 0.75 * pdist[i, j] + 0.25 * depdist[i, j]
+                except Exception:
+                    wmd += pdist[i, j]
 
             # Divide by length of first text to normalize the score.
             return wmd / pdist.shape[0]
