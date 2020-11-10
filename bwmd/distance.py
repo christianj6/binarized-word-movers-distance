@@ -39,9 +39,9 @@ import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-from numba import jit, types, typeof
-from numba.typed import Dict, List
-from numba.types import DictType
+# from numba import jit, types, typeof
+# from numba.typed import Dict, List
+# from numba.types import DictType
 from pyemd import emd
 
 # # Cast sw to typed array.
@@ -611,7 +611,7 @@ class BWMD():
             return dependencies
 
 
-        @jit(nopython=True)
+        # @jit(nopython=True)
         def get_distance_unidirectional(pdist:'np.array',
                                     depdist:'np.array'=None)->float:
             '''
