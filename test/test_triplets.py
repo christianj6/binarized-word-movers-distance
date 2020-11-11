@@ -149,7 +149,7 @@ class TestCase(unittest.TestCase):
         without syntax information.
         '''
         for model in MODELS:
-            compute_time, score = evaluate_triplets_task('glove', '512', False, False)
+            compute_time, score = evaluate_triplets_task(model, '512', False, False)
             logging.warning(f"BWMD {model} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
