@@ -5,42 +5,39 @@ Scalable text similarity with binarized embedding distance and syntactic depende
 
 ### Overview
 
-This repository hosts code for the thesis 'Binarized Word Mover's Distance,' written by Christian Johnson for obtaining the M.Sc. in Cognitive Science at Osnabrück University. The project concerns the enhancement of a preexisting distance metric, the Word Mover's Distance, originally developed by Kusner et al. (2015).
+The Binarized Word Mover's Distance (BWMD) is an adaption of the Word Mover's Distance, originally developed by Kusner et al. (2015). The BWMD computes a lower-bound Wasserstein word-embedding distance using binarized embeddings and an approximate-nearest-neighbor cache. 
 
-***
-
-### Project Structure
-
-<pre>
-|-- bwmd
-|-- res
-	|-- datasets
-	|-- images
-	|-- models
-	|-- tables
-|-- test
-</pre>
-
-
-##### bwmd
-
-Main source code directory, including scripts for autoencoder vector compression and distance calculations.
-
-##### res
-
-Resources and outputs. *datasets* contains the word similarity data used to evaluate compressed word vectors. *images* contains output images including a summary of autoencoder training. *models* contains saved models in case this parameter is provided during fitting. This directory is the expected location of the vectors used to fit the autoencoder model. As the vectors are too large to host on GitHub, they must be downloaded and manually-placed into this directory. *tables* contains computed lookup tables produced with the *clusters* module.
-
-##### test
-
-Test scripts, including several evaluations for the binary vectors themselves and the distance metric.
+[Paper]()
 
 ***
 
 ### Installation
 
-Please install the library with pip by first cloning the repository and navigating to the repository directory.
+Clone the repository.
 
-<pre>$ pip install setup.py</pre>
+```$ git clone https://github.com/christianj6/binarized-word-movers-distance.git```
+
+Navigate to the repository directory and install with pip.
+
+```$ pip install .```
+
+***
+
+### Models
+
+In order to compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can download the models used for evaluations from the following links.
+
+| FastText-EN (512-bit) | GloVe-EN (512-bit) | Word2Vec-EN (512-bit) |
+| --------------------- | ------------------ | --------------------- |
+| [Download]()          | [Download]()       | [Download]()          |
+
+***
+
+### Usage
+
+- [ ] minimal start
+- [ ] creating a new model
+- [ ] info on all parameters you can tweak
 
 ***
 
@@ -48,22 +45,18 @@ Please install the library with pip by first cloning the repository and navigati
 
 Tests are implemented with the unittest built-in library. You may run all tests from the repository directory with the following command.
 
-<pre>python -m unittest</pre>
+```python -m unittest bwmd```
 
 Specific tests may be run by accessing the *test* module.
 
-<pre>$ python -m unittest test.test_compressor</pre>
+```$ python -m unittest bwmd.test.test_triplets```
 
 ***
 
 ### TODO
 
-- [x] Module for distance calculations.
-- [x] Test for distance metric evaluations.
-- [x] Integrate syntax module with distance.
-- [ ] Triplets evaluation.
 - [ ] Information on obtaining and formatting vectors.
-- [ ] CLI support.
+- [ ] make sure all the demo code works
 
 ***
 
