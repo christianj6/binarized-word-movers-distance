@@ -517,7 +517,7 @@ class BWMD():
                 with open(f"{model_path}\\tables\\_key", "rb") as f:
                     if full_cache:
                         # Load all tables into a single cache.
-                        self.cache = self.load_all_lookup_tables(dill.load(f), model, dim)
+                        self.cache = self.load_all_lookup_tables(dill.load(f), model_path)
 
 
                     # TODO: Adjust filenames and fix LRU cache compatibility.
@@ -527,7 +527,7 @@ class BWMD():
                         self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
         # Load the vectors and the words.
-        vectors, words = load_vectors(filepath,
+        vectors, words = load_vectors(path_to_vectors,
                                 size=self.size_vocab,
                                 expected_dimensions=self.dim,
                                 expected_dtype=dtype, get_words=True,
