@@ -564,7 +564,13 @@ class Compressor():
         print('\nValidation loss: ', str(round(sum(losses) / len(losses), 3)))
 
 
-    def transform(self, path:str, expected_dimensions:int=300, save=True)->None:
+    def transform(
+        self,
+        path:str,
+        expected_dimensions:int=300,
+        save:bool=True,
+        n_vectors:int=None
+    )->None:
         '''
         Transform real-valued vectors to a compressed code
         representation using a trained autoencoder. Option to
@@ -587,7 +593,12 @@ class Compressor():
         # Path to export transformed vectors.
         export_path = f'{output_dir}\\vectors.txtc'
         # Load all vectors and words from file.
-        vectors, words = load_vectors(path, expected_dimensions=expected_dimensions, get_words=True)
+        vectors, words = load_vectors(
+            path,
+            size=n_vectors,
+            expected_dimensions=expected_dimensions,
+            get_words=True
+        )
         # Get size of original vector before turning it into a tf dataset.
         size_original_vector = sys.getsizeof(vectors[0]) * 8
         # Cast vectors into tensorflow object. Do not shuffle
