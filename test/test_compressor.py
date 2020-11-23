@@ -151,11 +151,11 @@ class TestCase(unittest.TestCase):
                 score,_ = stats.spearmanr(human_similarities, hypothesized_similarities)
                 return score
 
-            real_value = f'res\\{vectors}.txt'
-            compressed = f'{real_value}c'
+            # real_value = f'res\\{vectors}.txt'
+            compressed = f'{vectors}-512\\vectors.txtc'
             # Evaluate both real and compressed vectors.
-            vectors_to_test = [(real_value, 'float32', 300), (compressed, COMPRESSION, REDUCED_DIMENSIONS)]
-            # vectors_to_test = [(compressed, COMPRESSION, REDUCED_DIMENSIONS)]
+            # vectors_to_test = [(real_value, 'float32', 300), (compressed, COMPRESSION, REDUCED_DIMENSIONS)]
+            vectors_to_test = [(compressed, COMPRESSION, REDUCED_DIMENSIONS)]
             for vector_path, dtype, size in vectors_to_test:
                 start = time.time()
                 # Load vectors from file.
@@ -170,7 +170,7 @@ class TestCase(unittest.TestCase):
                 print(f"Size of a single vector: {bites * 8}")
                 for dataset in datasets:
                     # Load data as dataframe.
-                    data = pd.read_csv(f'res\\datasets\\{dataset}.csv')
+                    data = pd.read_csv(f'bwmd\\data\\datasets\\{dataset}.csv')
                     # Calculate and print the score.
                     score = calculate_word_similarity_score(data, vectors, dtype)
                     print('Spearman Correlation: ', str(round(score, 3)),
