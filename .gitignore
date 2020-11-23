@@ -149,7 +149,7 @@ res/datasets/triplets
 res/datasets/triplets_
 
 # Notebooks.
-notebooks/
+# notebooks/
 bwmd/data/datasets/triplets
 bwmd/data/tables
 bwmd/data/vectors
