@@ -45,7 +45,7 @@ from bwmd.distance import BWMD
 corpus = [
 	['obama', 'speaks', 'to', 'the', 'media', 'in', 'illinois'],
 	['the', 'president', 'greets', 'the', 'press', 'in', 'chicago'],
-    ['this', 'sentence', 'is', 'unrelated']
+    	['this', 'sentence', 'is', 'unrelated']
 ]
 # Instantiate a distance object.
 bwmd = BWMD(
