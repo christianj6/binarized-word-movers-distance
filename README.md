@@ -1,4 +1,5 @@
 # Binarized Word Mover's Distance
+
 Scalable text similarity with binarized embedding distance and syntactic dependency information.
 
 ***
@@ -33,11 +34,40 @@ In order to compute distances, you must provide a path to a model directory cont
 
 ***
 
-### Usage
+### Minimal Start
 
-- [ ] minimal start
-- [ ] creating a new model
+If you already possess a model directory for your language, you may quickly compute distances as in the example below.
+
+```python
+from bwmd.distance import BWMD
+
+# Create a corpus of documents.
+corpus = [
+	['obama', 'speaks', 'to', 'the', 'media', 'in', 'illinois'],
+	['the', 'president', 'greets', 'the', 'press', 'in', 'chicago'],
+    ['this', 'sentence', 'is', 'unrelated']
+]
+# Instantiate a distance object.
+bwmd = BWMD(
+	model_path='path_to_model',
+	dim=512,
+)
+# Get pairwise distances.
+bwmd.pairwise(corpus)
+>>> array([[0.        , 0.23999023, 0.31298828],
+           [0.23999023, 0.        , 0.31502279],
+           [0.31298828, 0.31502279, 0.        ]])
+```
+
+Sample code for this minimal start and for training your own compressed vectors for any language can be found in the *notebooks* directory.
+
 - [ ] info on all parameters you can tweak
+
+***
+
+### Obtaining Real-Valued Vectors
+
+To generate compressed vectors, you first need a file containing real-valued vectors as words/values separated by spaces and new lines. You can obtain high-quality vectors for many languages from [FastText](https://fasttext.cc/docs/en/crawl-vectors.html). Make sure you download the .txt files and set ```skip_first_line=True``` when loading vectors from the file. Further details on parsing real-valued vector files when training your own models can be found in the ```fit_model.ipynb``` example in the *notebooks* directory.
 
 ***
 
@@ -55,7 +85,6 @@ Specific tests may be run by accessing the *test* module.
 
 ### TODO
 
-- [ ] Information on obtaining and formatting vectors.
 - [ ] make sure all the demo code works
 
 ***
