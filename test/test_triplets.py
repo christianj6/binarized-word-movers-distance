@@ -197,7 +197,7 @@ class TestCase(unittest.TestCase):
         n_samples = N_SAMPLES
         # Test WCD, WMD, and RWMD on real-value vectors.
         print('Initializing bwmd object ...')
-        bwmd = BWMD('glove', with_syntax=False,
+        bwmd = BWMD('glove.txt', with_syntax=False,
                         raw_hamming=False,
                         full_cache=True)
 
@@ -209,7 +209,7 @@ class TestCase(unittest.TestCase):
         run_test_single_metric(corpus, bwmd.get_rwmd, "Relaxed Word Mover's Distance")
         # Create a new BWMD object for the related distance,
         # because it uses a lookup table rather than the computed distances.
-        bwmd = BWMD('glove', 512, with_syntax=False,
+        bwmd = BWMD('glove-512', 512, with_syntax=False,
                         raw_hamming=False,
                         full_cache=True)
         # Evaluate on the corpus.
