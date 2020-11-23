@@ -23,6 +23,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
 import sys
+import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from bitstring import BitArray
@@ -579,8 +580,11 @@ class Compressor():
             save : bool
                 Save transformed vectors to file.
         '''
+        # Create a folder to save compressed vectors.
+        output_dir = f"{''.join(path.split('.')[0:-1])}"
+        os.makedirs(output_dir, exist_ok=True)
         # Path to export transformed vectors.
-        export_path = f'{path}c'
+        export_path = f'{output_dir}\\vectors.txtc'
         # Load all vectors and words from file.
         vectors, words = load_vectors(path, expected_dimensions=expected_dimensions, get_words=True)
         # Get size of original vector before turning it into a tf dataset.
