@@ -94,13 +94,19 @@ def convert_vectors_to_dict(vectors:list, words:list,
     return vectors_dict
 
 
-def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
-                        save=True, vector_size=300)->dict:
+def build_partitions_lookup_tables(
+    vectors:dict,
+    I:int,
+    real_value_path:str,
+    save=True,
+    vector_size=300
+)->dict:
     '''
-    Build a set of lookup tables by first clustering
-    all embeddings and then computing pairwise intra-cluster
-    distances. The computed tables can then be saved for
-    use in the BWMD distance calculations.
+    Build a set of lookup tables by recursively
+    partitioning the embeddings space and then
+    overlaying these partitionings to
+    find the approximate-nearest-neighbors
+    of each token.
 
     Parameters
     ---------
@@ -108,6 +114,11 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             Mapping of words to vectors.
         I : int
             Maximum number of iterations cf. Werner (2019)
+        real_value_path : str
+            Path to original vectors, needed to
+            compute cosine distances and locate the
+            directory where to output the partitions
+            and tables.
         save : bool
             If to save computed tables to file.
         vector_size : int
@@ -249,7 +260,8 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     k = 2**I
     print('Making 100 partitionings of size', str(k))
     # Make directory to store the partitions on disk.
-    partitions_dir = f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\partitions"
+    outputs_dir = f"{''.join(path.split('.')[0:-1])}"
+    partitions_dir = f"{outputs_dir}\\tables\\partitions"
     os.makedirs(partitions_dir, exist_ok=True)
     start = time.time()
     # Perform partitioning on the data.
@@ -288,7 +300,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
         # Cut by count threshold to reduce memory.
         all_words_associated_with_current_token = list(filter(lambda x: x[1] >= 3, count_tokens.items()))
         try:
-            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_wordlist", "wb") as f:
+            with open(f"{outputs_dir}\\tables\\{token}_wordlist", "wb") as f:
                 dill.dump(all_words_associated_with_current_token, f)
         except OSError:
             continue
@@ -297,14 +309,16 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     # the associated tokens according to the more-reliable
     # cosine distances.
     print('Loading raw vectors ...')
-    raw_vectors = f"{path.split('.')[0].split('-')[0]}.txt"
+    raw_vectors = outputs_dir
     # Load real-valued vectors.
     vectors, words = load_vectors(raw_vectors,
 
-                                size=200_000,
+                                # TODO: Make this a kwarg.
 
+                                size=200_000,
                                 expected_dimensions=300,
-                                expected_dtype='float32', get_words=True)
+                                expected_dtype='float32',
+                                get_words=True)
     vectors = convert_vectors_to_dict(vectors, words)
 
     # Load all word data upfront.
@@ -312,7 +326,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
     most_associated_words_each_token = {word: None for word in words}
     for word in tqdm(words):
         try:
-            with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{word}_wordlist", "rb") as f:
+            with open(f"{outputs_dir}\\tables\\{word}_wordlist", "rb") as f:
                 most_associated_words_each_token[word] = dill.load(f)
         except Exception:
             # Handle some pickling errors and bad file names.
@@ -342,7 +356,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
             try:
                 # Try to dump the table to a file. Since the files
                 # are so small we can make a lot of them with little cost.
-                with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\{token}_table", 'wb') as f:
+                with open(f"{outputs_dir}\\tables\\{token}_table", 'wb') as f:
                     dill.dump(table, f)
 
                 # If successfully dumped, add an entry to the key
@@ -356,7 +370,7 @@ def build_kmeans_lookup_tables(vectors:dict, I:int, path:str,
                 continue
 
     # Save the key mapping all tokens to associated words.
-    with open(f"res\\tables\\{path.split('.')[0].split('-')[0][4:]}\\{vector_size}\\_key", 'wb') as f:
+    with open(f"{outputs_dir}\\tables\\_key", 'wb') as f:
         dill.dump(token_association_key, f)
 
     end = time.time()
