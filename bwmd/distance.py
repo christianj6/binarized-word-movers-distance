@@ -792,7 +792,7 @@ class BWMD():
 
         Returns
         ---------
-            pairwise_distances : list[list]
+            pairwise_distances : np.array
                 Matrix of document pairwise distances.
         '''
         # Iterate over a set of docs and compute similarity.
