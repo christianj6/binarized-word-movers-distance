@@ -453,21 +453,29 @@ class BWMD():
                 self.cache.popitem(last=False)
 
 
-    def __init__(self, model:str, dim:str=None,
-                    with_syntax:bool=True,
-                    raw_hamming:bool=False,
-                    full_cache:bool=False)->None:
+    def __init__(
+        self,
+        model_path:str,
+        dim:int=None,
+        with_syntax:bool=True,
+        raw_hamming:bool=False,
+        full_cache:bool=False,
+        size_vocab:int=20_000
+    )->None:
         '''
         Initialize table key and cache.
 
         Parameters
         ---------
-            model : str
-                Name of model corresponding to a
-                parent directory for tables.
-            dim : str
+            model_path : str
+                Path to model file containing
+                compressed vectors and optionally
+                a set of computed lookup tables.
+            dim : int
                 Number of dimensions corresponding to
-                directory for tables.
+                directory for tables. If left blank, assume
+                that the user intends to use uncompressed
+                vectors eg for computing other distance metrics.
             with_syntax : bool
                 y/n to use syntax in the distance calculations.
             raw_hamming : bool
@@ -478,53 +486,65 @@ class BWMD():
                 for faster lookup but may be memory-intensive depending
                 on the machine and number of computed tables / their
                 individual sizes.
+            size_vocab : int
+                Size of the vocabulary to load. In many cases, it is unnecessary
+                to load the full vocabulary considering vectors are ordered by
+                frequency. Using more words will increase accuracy but also
+                decreases speed due to slower lookup times.
         '''
+        # Set vocab size.
+        self.size_vocab = size_vocab
+        # Determine if user is computing BWMD or
+        # attempting to use real-valued vectors for another
+        # distance metric.
+        if dim == None:
+            # User is submitting real-valued vectors.
+            # In this case we interpret the model_path as
+            # a path to the vectors directly.
+            path_to_vectors = model_path
+            # Assume 300 dimensions.
+            self.dim = 300
+            dtype = 'float32'
 
-
-        if dim != None:
-            self.dim = int(dim)
-            # Load the raw binary vectors.
-            filepath = f"res\\{model}-{dim}.txtc"
+        else:
+            # Otherwise we interpret model_path
+            # as a path to a directory containing
+            # compressed vectors and tables.
+            path_to_vectors = f"{model_path}\\vectors.txtc"
+            self.dim = dim
             dtype = 'bool_'
             if not raw_hamming:
-                with open(f"res\\tables\\{model}\\{dim}\\_key", "rb") as f:
+                with open(f"{model_path}\\tables\\_key", "rb") as f:
                     if full_cache:
                         # Load all tables into a single cache.
                         self.cache = self.load_all_lookup_tables(dill.load(f), model, dim)
+
+
+                    # TODO: Adjust filenames and fix LRU cache compatibility.
+
                     else:
                         # Create intelligent cache from lookup tables.
                         self.cache = self.LRUCache(2000, dill.load(f), model, dim)
 
-            return_numba = False
-
-        else:
-            # We just want the real-valued vectors.
-            filepath = f"res\\{model}.txt"
-            self.dim, dim = 300, 300
-            dtype = 'float32'
-            return_numba = False
-
+        # Load the vectors and the words.
         vectors, words = load_vectors(filepath,
-
-                                size=20_000,
-
-                                expected_dimensions=int(dim),
+                                size=self.size_vocab,
+                                expected_dimensions=self.dim,
                                 expected_dtype=dtype, get_words=True,
                                 return_numpy=True)
-        self.vectors = convert_vectors_to_dict(vectors, words, return_numba=return_numba)
-        # Cast words to typed list.
+        # Convert to a dictionary for fast lookups.
+        self.vectors = convert_vectors_to_dict(vectors, words)
+        # Cast words to set for faster lookup.
         self.words = set(words)
-        # [self.words.append(word) for word in words]
-
         # Load the lookup table of dependency distances.
         if with_syntax:
-            with open('res\\tables\\dependency_distances', 'rb') as f:
+            with open('bwmd\\data\\dependency_distances', 'rb') as f:
                 self.dependency_distances = dill.load(f)
 
             self.nlp = spacy.load('en_core_web_sm')
 
 
-    def load_all_lookup_tables(self, key:dict, model:str, dim:str)->dict:
+    def load_all_lookup_tables(self, key:dict, model_path:str)->dict:
         '''
         Load all lookup tables as a single
         dictionary for accelerated lookup
@@ -536,10 +556,9 @@ class BWMD():
                 Mapping of tokens to their assocaited
                 words. Keys are used as a base list for
                 loading all dicts.
-            model : str
-                Name of model tables to load.
-            dim : str
-                Model dimension.
+            model_path : str
+                Path to model directory
+                wherein are contained the tables.
 
         Returns
         ---------
@@ -557,10 +576,10 @@ class BWMD():
         key = {token: [word.lower() for word,_ in tuples] for token, tuples in key.items()}
         # Create outer dictionary.
         lookup_dict = {}
-
+        # Load all the tables.
         print('Loading all lookup tables ...')
-        for k in tqdm(list(key.keys())[:20_000]):
-            with open(f'res\\tables\\{model}\\{dim}\\{k}_table', 'rb') as f:
+        for k in tqdm(list(key.keys())[:self.size_vocab]):
+            with open(f'{model_path}\\tables\\{k}_table', 'rb') as f:
                 # Reformat the words to lowercase.
                 updated_dict = {word.lower(): value for (word,_), value in dill.load(f).items()}
                 # Make inner dictionary.
