@@ -20,13 +20,14 @@ class TestCase(unittest.TestCase):
     Test cases for autoencoder compressor
     for reduced memory footprint word vectors.
     '''
+    @unittest.skip
     def test_compressor_functionality(self):
         '''
         Test of basic compressor functionality.
         '''
         for name in MODELS_TO_TEST:
             # Vectors filepath.
-            path = f'res\\{name}.txt'
+            path = f'{name}.txt'
             # Vector dimension.
             dim = 300
             # Load vectors.
@@ -43,7 +44,7 @@ class TestCase(unittest.TestCase):
             # Transform and save all original vectors.
             compressor.transform(path, dim, save=True)
             # Save model.
-            compressor.save(f'res\\models\\{name}\\{name}_compressor')
+            compressor.save(f'bwmd\\models\\{name}\\{name}_compressor')
 
 
     def test_compressor_word_similarity(self):
