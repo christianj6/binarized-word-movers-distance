@@ -473,7 +473,8 @@ class Compressor():
 
         # Save a summary of training.
         plt.plot(losses)
-        plt.savefig('res\\images\\loss.png')
+        # plt.savefig('res\\images\\loss.png')
+        plt.show()
         # Store batch size for evaluation.
         self.batch_size = batch_size
 
