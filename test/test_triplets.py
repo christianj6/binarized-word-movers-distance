@@ -33,9 +33,9 @@ logging.basicConfig(level=logging.WARNING,
 
 N_SAMPLES = 300
 MODELS = [
-    'glove',
-    'fasttext',
-    'word2vec'
+    'glove-512',
+    'fasttext-512',
+    'word2vec-512'
 ]
 
 def load_wikipedia_corpus(n_samples):
@@ -57,7 +57,7 @@ def load_wikipedia_corpus(n_samples):
     print('Loading wikipedia corpus ...')
     for i in tqdm(range(n_samples)):
         try:
-            with open(f'res\\datasets\\triplets_\\wikipedia-{i}', 'rb') as f:
+            with open(f'bwmd\\data\\datasets\\triplets\\wikipedia-{i}', 'rb') as f:
                 corpus.append(dill.load(f))
 
         except FileNotFoundError:
@@ -98,7 +98,6 @@ def evaluate_triplets_task(model, dim, syntax, raw_hamming):
     bwmd = BWMD(model, dim, with_syntax=syntax,
                     raw_hamming=raw_hamming,
                     full_cache=True)
-
     # Wikipedia corpus.
     corpus = load_wikipedia_corpus(n_samples)
     start = time.time()
@@ -135,7 +134,7 @@ class TestCase(unittest.TestCase):
         with syntax information.
         '''
         for model in MODELS:
-            compute_time, score = evaluate_triplets_task(model, '512', True, False)
+            compute_time, score = evaluate_triplets_task(model, 512, True, False)
             logging.warning(f"BWMD {model}+syntax - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model, '+syntax')
@@ -149,7 +148,7 @@ class TestCase(unittest.TestCase):
         without syntax information.
         '''
         for model in MODELS:
-            compute_time, score = evaluate_triplets_task(model, '512', False, False)
+            compute_time, score = evaluate_triplets_task(model, 512, False, False)
             logging.warning(f"BWMD {model} - {str(round(compute_time, 4)), 'minutes/iter'} - {str(score), 'percent error'}")
             print()
             print(model)
@@ -210,7 +209,7 @@ class TestCase(unittest.TestCase):
         run_test_single_metric(corpus, bwmd.get_rwmd, "Relaxed Word Mover's Distance")
         # Create a new BWMD object for the related distance,
         # because it uses a lookup table rather than the computed distances.
-        bwmd = BWMD('glove', '512', with_syntax=False,
+        bwmd = BWMD('glove', 512, with_syntax=False,
                         raw_hamming=False,
                         full_cache=True)
         # Evaluate on the corpus.
