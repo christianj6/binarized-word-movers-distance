@@ -471,12 +471,12 @@ class Compressor():
             losses.append(loss)
             print('Loss: ', str(round(loss.numpy(), 3)))
 
+        # Store batch size for evaluation.
+        self.batch_size = batch_size
         # Save a summary of training.
         plt.plot(losses)
         # plt.savefig('res\\images\\loss.png')
         plt.show()
-        # Store batch size for evaluation.
-        self.batch_size = batch_size
 
 
     @staticmethod
@@ -620,6 +620,8 @@ class Compressor():
         size_encoded_vector = round(sys.getsizeof(vectors_encoded[0]) / self.batch_size * 8)
         # Print statistics about memory reduction.
         print(f'Vectors of size {size_original_vector} bits reduced to {size_encoded_vector} bits.')
+
+        return output_dir
 
 
     def save(self, path:str)->None:
