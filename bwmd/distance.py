@@ -64,7 +64,6 @@ def convert_vectors_to_dict(
         vectors_dict : dict
             Mapping of words to vectors.
     '''
-    # Otherwise just a normal dictionary.
     vectors_dict = {}
     for vector, word in zip(vectors, words):
         vectors_dict[word] = vector
@@ -287,13 +286,10 @@ def build_partitions_lookup_tables(
     # the associated tokens according to the more-reliable
     # cosine distances.
     print('Loading raw vectors ...')
-    raw_vectors = outputs_dir
+    raw_vectors = path
     # Load real-valued vectors.
     vectors, words = load_vectors(raw_vectors,
-
-                                # TODO: Make this a kwarg.
-
-                                size=200_000,
+                                size=len(vectors),
                                 expected_dimensions=300,
                                 expected_dtype='float32',
                                 get_words=True)
@@ -354,7 +350,7 @@ def build_partitions_lookup_tables(
     end = time.time()
     print('Time to compute lookup tables: ', str(round(end - start, 3)))
 
-    return None
+    return outputs_dir
 
 
 class BWMD():
@@ -449,9 +445,9 @@ class BWMD():
         self,
         model_path:str,
         dim:int=None,
-        with_syntax:bool=True,
+        with_syntax:bool=False,
         raw_hamming:bool=False,
-        full_cache:bool=False,
+        full_cache:bool=True,
         size_vocab:int=20_000
     )->None:
         '''
