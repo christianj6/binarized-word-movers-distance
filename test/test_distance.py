@@ -1,9 +1,10 @@
 import unittest
 from bwmd.compressor import load_vectors
-from bwmd.distance import convert_vectors_to_dict, build_kmeans_lookup_tables, BWMD
+from bwmd.distance import convert_vectors_to_dict, build_partitions_lookup_tables, BWMD
 
 
-VECTORS = 'res\\glove-512.txtc'
+VECTORS = 'glove-512'
+REAL_VALUE_PATH = 'glove.txt'
 DIM = 512
 COMPRESSION = 'bool_'
 
@@ -14,18 +15,27 @@ class TestCase(unittest.TestCase):
     cache-removal policy, and distance calculation
     functionality.
     '''
-    def test_knn_lookup_table(self):
+    def test_partition_lookup_table(self):
         '''
-        Test for building the knn lookup table
+        Test for building the partition lookup table
         accessed during distance-computations in
         combination with intelligent caching policy.
         '''
-        vectors, words = load_vectors(VECTORS,
-                            size=10_000,
-                            expected_dimensions=DIM,
-                                expected_dtype=COMPRESSION, get_words=True)
+        vectors_filepath = f"{VECTORS}\\vectors.txtc"
+        vectors, words = load_vectors(
+            vectors_filepath,
+            size=10_000,
+            expected_dimensions=DIM,
+            expected_dtype=COMPRESSION,
+            get_words=True
+        )
         vectors = convert_vectors_to_dict(vectors, words)
-        token_to_centroid = build_kmeans_lookup_tables(vectors, I=11, path=VECTORS, vector_size=DIM)
+        token_to_centroid = build_partitions_lookup_tables(
+            vectors,
+            I=11,
+            real_value_path=REAL_VALUE_PATH,
+            vector_size=DIM
+        )
 
 
     def test_bwmd_distance(self):
