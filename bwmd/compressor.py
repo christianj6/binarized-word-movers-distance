@@ -670,12 +670,15 @@ def save_vectors(path:str, words:list, vectors_batched:np.array, compression:str
                 f.write('\n')
 
 
-def load_vectors(path, size:int=None,
-                expected_dimensions:int=300,
-                expected_dtype:str='float32',
-                get_words:bool=False,
-                bitarray:bool=False,
-                return_numpy:bool=False)->list:
+def load_vectors(path,
+    size:int=None,
+    expected_dimensions:int=300,
+    expected_dtype:str='float32',
+    get_words:bool=False,
+    bitarray:bool=False,
+    return_numpy:bool=False,
+    skip_first_line:bool=False
+)->list:
     '''
     Load word embedding vectors from file.
 
@@ -694,6 +697,9 @@ def load_vectors(path, size:int=None,
         words : bool
             Whether or not to return the original
             words with the vectors.
+        skip_first_line : bool
+            Skip the first line in cases where
+            pretrained vectors have a header.
 
     Returns
     ---------
@@ -709,11 +715,17 @@ def load_vectors(path, size:int=None,
             for line in f:
                 size +=1
 
+    if skip_first_line:
+        start_line = 1
+    else:
+        start_line = 0
+    lines_range = range(start_line, size)
+
     words = []
     vectors = []
     with open(path, 'r', encoding="utf8") as f:
         # Show computation updates.
-        for i in tqdm(range(size)):
+        for i in tqdm(lines_range):
             try:
                 line = f.readline().split()
                 # Get word.
