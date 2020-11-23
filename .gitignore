@@ -154,3 +154,7 @@ bwmd/data/datasets/triplets
 bwmd/data/tables
 bwmd/data/vectors
 
+# Tests with model dirs
+fasttext-512/
+word2vec-512/
+glove-512/
