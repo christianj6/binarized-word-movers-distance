@@ -721,6 +721,7 @@ def load_vectors(path,
 
     if skip_first_line:
         start_line = 1
+        size += 1
     else:
         start_line = 0
     lines_range = range(start_line, size)
