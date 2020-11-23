@@ -869,7 +869,7 @@ class BWMD():
             try:
                 # Try lookup.
                 return self.cache[a][b]
-            except KeyError:
+            except (KeyError, AttributeError):
                 # Otherwise None for error handling.
                 return None
 
