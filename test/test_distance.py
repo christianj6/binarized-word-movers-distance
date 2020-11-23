@@ -44,7 +44,7 @@ class TestCase(unittest.TestCase):
         for a small set of test sentences.
         '''
         # Initialize BWMD.
-        bwmd = BWMD('glove', '512', with_syntax=True, raw_hamming=True)
+        bwmd = BWMD('glove-512', 512, with_syntax=True, raw_hamming=True)
         # Sample texts for testing.
         text_a = 'Obama speaks to the media in Illinois .'
         text_b = 'The President greets the press in Chicago .'
@@ -62,7 +62,7 @@ class TestCase(unittest.TestCase):
         pairwise distance matrix.
         '''
         # Initialize BWMD.
-        bwmd = BWMD('glove', '512', with_syntax=True, raw_hamming=True)
+        bwmd = BWMD('glove-512', 512, with_syntax=True, raw_hamming=True)
         # Initialize corpus of texts.
         text_a = 'Obama speaks to the media in Illinois'
         text_b = 'The President greets the press in Chicago'
