@@ -49,7 +49,7 @@ corpus = [
 ]
 # Instantiate a distance object.
 bwmd = BWMD(
-	model_path='path_to_model',
+	model_path='glove-en-512',
 	dim=512,
 )
 # Get pairwise distances.
