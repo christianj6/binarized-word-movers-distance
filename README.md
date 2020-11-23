@@ -81,6 +81,10 @@ Specific tests may be run by accessing the *test* module.
 
 ```$ python -m unittest bwmd.test.test_triplets```
 
+#### Note: Files Required for Running Tests
+
+Because many of the tests require real-valued and/or compressed vectors to function properly, it is impossible to comprehensively evaluate the test-suite without these files. Only by downloading all three of the above models and placing these in the package root directory along with GloVe vectors obtained [here](http://nlp.stanford.edu/data/glove.42B.300d.zip), can you safely run all tests. The GloVe vectors must be named ```glove.txt```. Additionally, to run evaluations on the Wikipedia triplets task to reproduce results seen in the paper, you must download the triplets data [here]() and place the unzipped folder in *bwmd/data/datasets*.
+
 ***
 
 ### TODO
