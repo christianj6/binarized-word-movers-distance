@@ -39,24 +39,14 @@ import spacy
 from spacy.tokens import Doc
 from nltk.corpus import stopwords
 sw = stopwords.words("english")
-from numba import jit, types, typeof
-from numba.typed import Dict, List
-# from numba.types import DictType
 from pyemd import emd
 from gensim.corpora.dictionary import Dictionary
 
-# # Cast sw to typed array.
-# typed_sw = List()
-# [typed_sw.append(word) for word in sw]
-# # Create empty dict so we can use it's type
-# # to create nested dictionaries later.
-D1 = Dict.empty(
-                key_type=types.unicode_type,
-                value_type=types.float64
-                )
 
-def convert_vectors_to_dict(vectors:list, words:list,
-                return_numba:bool=False)->dict:
+def convert_vectors_to_dict(
+    vectors:list,
+    words:list,
+)->dict:
     '''
     Convert a set of loaded word vectors
     to a word-vector dictionary for
@@ -74,18 +64,6 @@ def convert_vectors_to_dict(vectors:list, words:list,
         vectors_dict : dict
             Mapping of words to vectors.
     '''
-    if return_numba:
-        # Use numba object.
-        vectors_dict = Dict.empty(
-                            key_type=types.unicode_type,
-                            value_type=types.int8[:]
-                            )
-        for vector, word in zip(vectors, words):
-            # Append one dimensional array.
-            vectors_dict[word] = vector[0]
-
-        return vectors_dict
-
     # Otherwise just a normal dictionary.
     vectors_dict = {}
     for vector, word in zip(vectors, words):
@@ -649,7 +627,6 @@ class BWMD():
             return dependencies
 
 
-        # @jit(nopython=True)
         def get_distance_unidirectional(pdist:'np.array',
                                     depdist:'np.array'=None,
                                     syntax:bool=False)->float:
@@ -808,7 +785,7 @@ class BWMD():
         # TODO: Try to store some stuff in a cache ie the dependencies.
 
         # Pairwise distance matrix.
-        return matrix
+        return np.array(matrix)
 
 
     def hamming_distance(self):
