@@ -28,9 +28,9 @@ Navigate to the repository directory and install with pip.
 
 In order to compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can download the models used for evaluations from the following links.
 
-| FastText-EN (512-bit) | GloVe-EN (512-bit) | Word2Vec-EN (512-bit) |
-| --------------------- | ------------------ | --------------------- |
-| [Download]()          | [Download]()       | [Download]()          |
+| FastText-EN (512-bit)                                        | GloVe-EN (512-bit)                                           | Word2Vec-EN (512-bit)                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [Download](https://drive.google.com/uc?export=download&id=1MSEltaeVk-mbzNGCbcfyXuHURqM5WRJt) | [Download](https://drive.google.com/uc?export=download&id=1xzVbGKV0fsuTCA9OkR5auJNgO05xCdAZ) | [Download](https://drive.google.com/uc?export=download&id=1M1Dd6RrWq8ZJk1l2zvf1YxFGuG-HNqxf) |
 
 ***
 
