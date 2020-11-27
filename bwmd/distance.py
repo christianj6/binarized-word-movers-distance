@@ -237,7 +237,7 @@ def build_partitions_lookup_tables(
     k = 2**I
     print('Making 100 partitionings of size', str(k))
     # Make directory to store the partitions on disk.
-    outputs_dir = f"{''.join(path.split('.')[0:-1])}"
+    outputs_dir = f"{''.join(real_value_path.split('.')[0:-1])}"
     partitions_dir = f"{outputs_dir}\\tables\\partitions"
     os.makedirs(partitions_dir, exist_ok=True)
     start = time.time()
@@ -770,7 +770,7 @@ class BWMD():
         '''
         # Iterate over a set of docs and compute similarity.
         matrix = []
-        for doc_a in corpus:
+        for doc_a in tqdm(corpus):
             distances = []
             for doc_b in corpus:
                 distances.append(self.get_distance(doc_a, doc_b))
