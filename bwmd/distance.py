@@ -315,7 +315,7 @@ def build_partitions_lookup_tables(
         # words_most_associated_with_current_token = []
         try:
             # Compute and save the cosine distances for the output tables.
-            words = list(map(lambda x: (x[0], distance_scipy.cosine(vectors[token],
+            words = list(map(lambda x: (x, distance_scipy.cosine(vectors[token],
                                 vectors[x[0]])), most_associated_words_each_token[token]))
 
         except (KeyError, TypeError):
@@ -335,7 +335,7 @@ def build_partitions_lookup_tables(
 
                 # If successfully dumped, add an entry to the key
                 # governing the cache policy.
-                token_association_key[token] = [word for word, _ in words]
+                token_association_key[token] = [word for word,_ in words]
             except OSError:
                 # Some file names (mostly punctuation) are invalid file names. We could
                 # map all the tokens to an integer, but since punctuation are
