@@ -3,11 +3,11 @@ from setuptools import setup
 setup(
     name='bwmd',
     version='0.0.1',
-    description='',
+    description='Fast, robust text similarity with autoencoder compressed word embeddings.',
     url='git+ssh://git@github.com/christianj6/binarized-word-movers-distance.git',
     author='Christian Johnson',
-    author_email='chr.a.johnson@gmail.com',
+    author_email='',
     license='unlicensed',
-    packages=['bwmd'],
-    zip_safe=False
+    package_dir={'': 'bwmd'},
+    install_requires=[]
 )
