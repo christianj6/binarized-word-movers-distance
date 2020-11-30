@@ -158,3 +158,6 @@ bwmd/data/vectors
 fasttext-512/
 word2vec-512/
 glove-512/
+
+# Example dir
+ccde300/
