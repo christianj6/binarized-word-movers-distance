@@ -61,7 +61,23 @@ bwmd.pairwise(corpus)
 
 Sample code for this minimal start and for training your own compressed vectors for any language can be found in the *notebooks* directory.
 
-- [ ] info on all parameters you can tweak
+***
+
+### API Details
+
+- ```BWMD(model_path, dim, with_syntax=False, size_vocab=20_000)``` creates a distance object from a path containing precomputed lookup tables and compressed vectors. You must specify the dimension of the compressed vectors, otherwise the object will assume you are supplying real-valued vectors and you will not be able to compute the BWMD. 
+- ```bwmd.get_distance(text_a, text_b)``` computes the BWMD between two texts as lists of strings. One should not remove stopwords as these are integral to the syntactic distance calculations and are automatically-removed.
+- ```bwmd.pairwise(corpus)``` computes a pairwise distance matrix for an array of texts as lists of strings. 
+- ```bwmd.get_wcd(text_a, text_b)``` computes the Word Centroid Distance for evaluative comparisons, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
+- ```bwmd.get_wmd(text_a, text_b)``` computes the Word Mover's Distance for evaluative comparisions, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
+- ```bwmd.get_rwmd(texta, text_b)``` computes the Relaxed Word Mover's Distance lower-bound for evaluative comparisons, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
+- ```bwmd.get_relrwmd(text_a, text_b)``` computes the Related Relaxed Word Mover's Distance lower-bound for evaluative comparisions, per Werner et al. (2019). This method is compatible with the standard BWMD model format but computes an alternative lower-bound without compressed vectors.
+- ```Compressor(original_dimensions, reduced_dimensions, compression='bool_')``` creates an autoencoder compressor object which can be fitted to a set of real-valued word embeddings that they can be transformed into a lower-dimensional, binary space. 
+- ```compressor.fit(vectors, epochs=20, batch_size=75)``` will train/fit the autoencoder on a set of loaded vectors. 
+- ```compressor.transform(path, expected_dimensions, n_vectors=30_000)``` compresses and saves the supplied vectors to a corresponding model directory. With the ```n_vectors``` parameter you can control what amount of the original vector space is ultimately transformed. Given that most vector files are sorted by word frequency, it is often unnecessary to transform the full vector space and with this parameter you can save some computation time and on-disk memory.
+- ```load_vectors(path, size, expected_dimensions, expected_dtype, get_words=False)``` loads vectors and/or words into a tuple of arrays and can be used to supply a compressor with vectors directly or instantiate a BWMD object when converted to a dictionary.
+- ```convert_vectors_to_dict(vectors, words)``` zips vectors and words into a dictionary mapping tokens to their vector representations.
+- ```build_partitions_lookup_tables(vectors, I, real_value_path, vector_size)``` constructs approximate-nearest-neighbor lookup tables for caching vector distances. The free parameter ```I``` controls the number of partitions which are made at each of the n=100 iterations of the algorithm, resulting in ```k=2^I``` partitions.
 
 ***
 
@@ -83,16 +99,11 @@ Specific tests may be run by accessing the *test* module.
 
 #### Note: Files Required for Running Tests
 
-Because many of the tests require real-valued and/or compressed vectors to function properly, it is impossible to comprehensively evaluate the test-suite without these files. Only by downloading all three of the above models and placing these in the package root directory along with GloVe vectors obtained [here](http://nlp.stanford.edu/data/glove.42B.300d.zip), can you safely run all tests. The GloVe vectors must be named ```glove.txt```. Additionally, to run evaluations on the Wikipedia triplets task to reproduce results seen in the paper, you must download the triplets data [here]() and place the unzipped folder in *bwmd/data/datasets*.
-
-***
-
-### TODO
-
-- [ ] make sure all the demo code works
+Because many of the tests require real-valued and/or compressed vectors to function properly, it is impossible to comprehensively evaluate the test-suite without these files. Only by downloading all three of the above models and placing these in the package root directory along with GloVe vectors obtained [here](http://nlp.stanford.edu/data/glove.42B.300d.zip), can you safely run all tests. The GloVe vectors must be named ```glove.txt```. Additionally, to run evaluations on the Wikipedia triplets task to reproduce results seen in the paper, you must download the triplets data [here](https://drive.google.com/uc?export=download&id=1dxSVO1t0mzHs5_mHklO0qaI2lDsCbhv3) and place the unzipped folder in *bwmd/data/datasets*.
 
 ***
 
 ### References
 
 - Kusner, Matt & Sun, Y. & Kolkin, N.I. & Weinberger, Kilian. (2015). From word embeddings to document distances. Proceedings of the 32nd International Conference on Machine Learning (ICML 2015). 957-966.
+- Werner, Matheus & Laber, Eduardo. (2019). Speeding up Word Mover's Distance and its variants via properties of distances between embeddings. 
