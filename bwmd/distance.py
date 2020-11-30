@@ -286,7 +286,7 @@ def build_partitions_lookup_tables(
     # the associated tokens according to the more-reliable
     # cosine distances.
     print('Loading raw vectors ...')
-    raw_vectors = path
+    raw_vectors = real_value_path
     # Load real-valued vectors.
     vectors, words = load_vectors(raw_vectors,
                                 size=len(vectors),
