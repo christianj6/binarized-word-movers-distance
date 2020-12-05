@@ -33,7 +33,6 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
-        "License :: OSI Approved :: GNU General Public"
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
