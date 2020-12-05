@@ -4,7 +4,7 @@ Scalable text similarity with binarized embedding distance and syntactic depende
 
 ***
 
-![BBC MDS](https://github.com/christianj6/binarized-word-movers-distance/raw/cleanup/mds_bbc.png)
+![BBC MDS](https://github.com/christianj6/binarized-word-movers-distance/raw/master/mds_bbc.png)
 
 *Description: MDS visualization of [BBC News](http://mlg.ucd.ie/datasets/bbc.html) data. Dissimilarity matrix computed using Binarized Word Mover's Distance.*
 
