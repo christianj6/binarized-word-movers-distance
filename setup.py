@@ -8,7 +8,7 @@ setup(
     author='Christian Johnson',
     author_email='',
     license='unlicensed',
-    package_dir={'': 'bwmd'},
+    package_dir={'bwmd': 'bwmd'},
     install_requires=[
         'nltk==3.5',
         'numpy==1.18.5',
