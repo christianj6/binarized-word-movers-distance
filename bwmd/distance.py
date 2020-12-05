@@ -41,6 +41,7 @@ from nltk.corpus import stopwords
 sw = stopwords.words("english")
 from pyemd import emd
 from gensim.corpora.dictionary import Dictionary
+from sklearn.utils.validation import check_symmetric
 
 
 def convert_vectors_to_dict(
@@ -787,7 +788,7 @@ class BWMD():
         # TODO: Try to store some stuff in a cache ie the dependencies.
 
         # Pairwise distance matrix.
-        return np.array(matrix)
+        return check_symmetric(np.array(matrix))
 
 
     def hamming_distance(self):
