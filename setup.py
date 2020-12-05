@@ -26,5 +26,10 @@ setup(
         'scipy==1.4.1',
         'beautifulsoup4==4.9.3',
         'gmpy2==2.0.8',
+    ],
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "License :: OSI Approved :: GNU General Public"
     ]
 )
