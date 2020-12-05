@@ -24,7 +24,7 @@ Install gmpy2 using an appropriate pre-compiled binary found [here](https://www.
 
 Install with pip.
 
-```$ pip install bwmd``
+```$ pip install bwmd```
 
 ***
 
