@@ -7,7 +7,7 @@ setup(
     name='bwmd',
     version='0.0.1',
     description='Fast, robust text similarity with autoencoder compressed word embeddings.',
-    url='',
+    url='https://github.com/christianj6/binarized-word-movers-distance.git',
     author='Christian Johnson',
     author_email='',
     license='unlicensed',
