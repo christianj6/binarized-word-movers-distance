@@ -709,6 +709,12 @@ class BWMD():
             dist=self.related_word_distance_lookup(),
             default=self.hamming_distance()
         )
+        if pdist.shape[0] == 0 or pdist.T.shape[0] == 0:
+            # Return a default maximum value if we couldn't
+            # get any distance info, likely because all
+            # the tokens were either stopwords or not
+            # in the vocabulary.
+            return 1
 
         # Get score from both directions and sum to make the
         # metric bidirectional. Summation determined to be most
