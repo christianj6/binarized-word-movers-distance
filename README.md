@@ -4,6 +4,12 @@ Scalable text similarity with binarized embedding distance and syntactic depende
 
 ***
 
+![BBC MDS](https://github.com/christianj6/binarized-word-movers-distance/raw/cleanup/mds_bbc.png)
+
+*Description: MDS visualization of [BBC News](http://mlg.ucd.ie/datasets/bbc.html) data. Dissimilarity matrix computed using Binarized Word Mover's Distance.*
+
+***
+
 ### Overview
 
 The Binarized Word Mover's Distance (BWMD) is an adaption of the Word Mover's Distance, originally developed by Kusner et al. (2015). The BWMD computes a lower-bound Wasserstein word-embedding distance using binarized embeddings and an approximate-nearest-neighbor cache. 
