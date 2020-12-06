@@ -20,11 +20,11 @@ The Binarized Word Mover's Distance (BWMD) is an adaption of the Word Mover's Di
 
 ### Installation
 
-Install gmpy2 using an appropriate pre-compiled binary found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
+1. Install gmpy2 using an appropriate pre-compiled binary found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
 
-Install with pip.
+2. Install with pip.
 
-```$ pip install bwmd```
+   ```$ pip install bwmd```
 
 ***
 
