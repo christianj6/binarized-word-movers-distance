@@ -1,17 +1,18 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(
     name='bwmd',
-    version='0.0.1',
+    version='0.0.2',
     description='Fast, robust text similarity with autoencoder compressed word embeddings.',
     url='https://github.com/christianj6/binarized-word-movers-distance.git',
     author='Christian Johnson',
     author_email='',
     license='unlicensed',
     package_dir={'bwmd': 'bwmd'},
+    packages=find_packages(),
     install_requires=[
         'nltk==3.5',
         'numpy==1.18.5',
