@@ -568,11 +568,15 @@ class BWMD():
         # Load all the tables.
         print('Loading all lookup tables ...')
         for k in tqdm(list(key.keys())[:self.size_vocab]):
-            with open(f'{model_path}\\tables\\{k}_table', 'rb') as f:
-                # Reformat the words to lowercase.
-                updated_dict = {word.lower(): value for (word,_), value in dill.load(f).items()}
-                # Make inner dictionary.
-                lookup_dict[k.lower()] = updated_dict
+            try:
+                with open(f'{model_path}\\tables\\{k}_table', 'rb') as f:
+                    # Reformat the words to lowercase.
+                    updated_dict = {word.lower(): value for (word,_), value in dill.load(f).items()}
+                    # Make inner dictionary.
+                    lookup_dict[k.lower()] = updated_dict
+
+            except FileNotFoundError:
+                pass
 
         return lookup_dict
 
