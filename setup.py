@@ -16,7 +16,7 @@ setup(
     install_requires=[
         'nltk==3.5',
         'numpy==1.18.5',
-        'tensorflow==2.3.0',
+        'tensorflow==2.3.1',
         'tensorflow_probability==0.11.0',
         'tqdm==4.47.0',
         'gensim==3.8.3',
