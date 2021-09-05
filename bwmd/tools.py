@@ -6,6 +6,10 @@ def hamming_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return np.count_nonzero(a == b)
 
 
+def hamming_distance(a: np.ndarray, b: np.ndarray) -> float:
+    return np.count_nonzero(a != b)
+
+
 def cosine_distance(x, y):
     return 1 - np.inner(x, y) / np.sqrt(np.dot(x, x) * np.dot(y, y))
 
@@ -58,9 +62,20 @@ def load_vectors(
             try:
                 # Get data from the line.
                 line = f.readline().split()
-                vector = np.asarray(line[1:], dtype=expected_dtype).reshape(1, -1)
-                if vector.shape[1] == expected_dimensions:
-                    vectors.append(vector[0])
+                if expected_dtype == "bool_":
+                    # Load bool values by upacking bits.
+                    vector = np.unpackbits(
+                        np.asarray(line[1:], dtype=np.uint8).reshape(1, -1)
+                    )
+
+                else:
+                    # Otherwise just use the dtype.
+                    vector = np.asarray(line[1:], dtype=expected_dtype).reshape(1, -1)[
+                        0
+                    ]
+
+                if vector.shape[0] == expected_dimensions:
+                    vectors.append(vector)
                     words.append(line[0])
 
             except ValueError as e:
@@ -127,7 +142,7 @@ def save_vectors(
     with open(path, "w") as f:
         # Save vectors to new line with tab separating word and vector values.
         for word, vector in zip(words, vectors):
-            vector = vector.astype(int)
+            vector = np.packbits(vector.astype("bool_"))
             f.write(word + "\t")
             f.write("\t".join(str(num) for num in vector))
             f.write("\n")
