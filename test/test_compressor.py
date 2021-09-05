@@ -11,7 +11,6 @@ from bwmd.tools import (
     convert_vectors_to_dict,
     load_vectors,
     hamming_similarity,
-    cosine_distance,
 )
 
 
