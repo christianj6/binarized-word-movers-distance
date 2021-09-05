@@ -13,7 +13,7 @@ of vectors used to construct the tables, you may compute the
 BWMD distance using these cached tables.
 """
 
-from bwmd.tools import load_vectors, convert_vectors_to_dict
+from bwmd.tools import load_vectors, convert_vectors_to_dict, hamming_distance
 from bwmd_utils import hamdist
 from nltk.corpus import stopwords
 from tqdm import tqdm
@@ -164,7 +164,7 @@ class BWMD:
                     d = self.cache[x][y]
 
                 except KeyError:
-                    d = hamdist(self.vectors[x], self.vectors[y])
+                    d = hamming_distance(self.vectors[x], self.vectors[y])
 
                 pdist[i, j] = d
 

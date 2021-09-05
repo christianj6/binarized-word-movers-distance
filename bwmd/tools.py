@@ -66,7 +66,7 @@ def load_vectors(
                     # Load bool values by upacking bits.
                     vector = np.unpackbits(
                         np.asarray(line[1:], dtype=np.uint8).reshape(1, -1)
-                    )
+                    )                   
 
                 else:
                     # Otherwise just use the dtype.
