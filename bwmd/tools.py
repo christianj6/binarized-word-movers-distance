@@ -7,7 +7,7 @@ def hamming_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def hamming_distance(a: np.ndarray, b: np.ndarray) -> float:
-    return np.count_nonzero(a != b)
+    return np.count_nonzero(a != b) / a.shape[0]
 
 
 def cosine_distance(x, y):

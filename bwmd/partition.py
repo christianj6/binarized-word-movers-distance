@@ -1,3 +1,18 @@
+"""
+OVERVIEW
+This module contains one large method
+for computing a lookup table file which is
+used as part of the binarized word mover's 
+distance lower bound distance metric.
+
+USAGE
+You must first build a set of compressed vectors
+using the compressor.py module, then pass these and 
+the real-valued vectors as keyword arguments to the
+function build_partitions_lookup_tables.
+"""
+
+
 import os
 import pickle
 import time
