@@ -12,7 +12,7 @@ Scalable text similarity with binarized embedding distance and syntactic depende
 
 ### Overview
 
-The Binarized Word Mover's Distance (BWMD) is an adaption of the Word Mover's Distance, originally developed by Kusner et al. (2015). The BWMD computes a lower-bound Wasserstein word-embedding distance using binarized embeddings and an approximate-nearest-neighbor cache. 
+The Binarized Word Mover's Distance (BWMD) is a modification of the Word Mover's Distance, originally developed by Kusner et al. (2015). The BWMD computes a lower-bound Wasserstein word-embedding distance using binarized embeddings and an approximate-nearest-neighbor cache. 
 
 [Paper](https://github.com/christianj6/binarized-word-movers-distance/raw/master/res/johnson_2020.pdf)
 
@@ -20,21 +20,27 @@ The Binarized Word Mover's Distance (BWMD) is an adaption of the Word Mover's Di
 
 ### Installation
 
-1. Install gmpy2 using an appropriate pre-compiled binary found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
+```
+pip install bwmd
+```
 
-2. Install with pip.
+***
 
-   ```$ pip install bwmd```
+### Run Tests
+
+```
+python -m unittest bwmd
+```
 
 ***
 
 ### Models
 
-In order to compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can download the models used for evaluations from the following links.
+To compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can compute these yourself as described in the ```/notebooks/``` directory, or use one of the models below.
 
-| FastText-EN (512-bit)                                        | GloVe-EN (512-bit)                                           | Word2Vec-EN (512-bit)                                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [Download](https://drive.google.com/uc?export=download&id=1MSEltaeVk-mbzNGCbcfyXuHURqM5WRJt) | [Download](https://drive.google.com/uc?export=download&id=1xzVbGKV0fsuTCA9OkR5auJNgO05xCdAZ) | [Download](https://drive.google.com/uc?export=download&id=1M1Dd6RrWq8ZJk1l2zvf1YxFGuG-HNqxf) |
+| FastText-EN (512-bit) | GloVe-EN (512-bit) | Word2Vec-EN (512-bit) |
+| --------------------- | ------------------ | --------------------- |
+| [Download]()          | [Download]()       | [Download]()          |
 
 ***
 
@@ -63,47 +69,29 @@ bwmd.pairwise(corpus)
            [0.31298828, 0.31502279, 0.        ]])
 ```
 
-Sample code for this minimal start and for training your own compressed vectors for any language can be found in the *notebooks* directory.
+Sample code for this minimal start and for training your own compressed vectors for any language can be found in the ```/notebooks/``` directory.
 
 ***
 
 ### API Details
 
-- ```BWMD(model_path, dim, with_syntax=False, size_vocab=20_000)``` creates a distance object from a path containing precomputed lookup tables and compressed vectors. You must specify the dimension of the compressed vectors, otherwise the object will assume you are supplying real-valued vectors and you will not be able to compute the BWMD. 
-- ```bwmd.get_distance(text_a, text_b)``` computes the BWMD between two texts as lists of strings. One should not remove stopwords as these are integral to the syntactic distance calculations and are automatically-removed.
-- ```bwmd.pairwise(corpus)``` computes a pairwise distance matrix for an array of texts as lists of strings. 
-- ```bwmd.get_wcd(text_a, text_b)``` computes the Word Centroid Distance for evaluative comparisons, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
-- ```bwmd.get_wmd(text_a, text_b)``` computes the Word Mover's Distance for evaluative comparisions, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
-- ```bwmd.get_rwmd(texta, text_b)``` computes the Relaxed Word Mover's Distance lower-bound for evaluative comparisons, per Kusner et al. (2015). When using this method one must create a BWMD object from real-valued vectors.
-- ```bwmd.get_relrwmd(text_a, text_b)``` computes the Related Relaxed Word Mover's Distance lower-bound for evaluative comparisions, per Werner et al. (2019). This method is compatible with the standard BWMD model format but computes an alternative lower-bound without compressed vectors.
-- ```Compressor(original_dimensions, reduced_dimensions, compression='bool_')``` creates an autoencoder compressor object which can be fitted to a set of real-valued word embeddings that they can be transformed into a lower-dimensional, binary space. 
-- ```compressor.fit(vectors, epochs=20, batch_size=75)``` will train/fit the autoencoder on a set of loaded vectors. 
-- ```compressor.transform(path, expected_dimensions, n_vectors=30_000)``` compresses and saves the supplied vectors to a corresponding model directory. With the ```n_vectors``` parameter you can control what amount of the original vector space is ultimately transformed. Given that most vector files are sorted by word frequency, it is often unnecessary to transform the full vector space and with this parameter you can save some computation time and on-disk memory.
-- ```load_vectors(path, size, expected_dimensions, expected_dtype, get_words=False)``` loads vectors and/or words into a tuple of arrays and can be used to supply a compressor with vectors directly or instantiate a BWMD object when converted to a dictionary.
-- ```convert_vectors_to_dict(vectors, words)``` zips vectors and words into a dictionary mapping tokens to their vector representations.
-- ```build_partitions_lookup_tables(vectors, I, real_value_path, vector_size)``` constructs approximate-nearest-neighbor lookup tables for caching vector distances. The free parameter ```I``` controls the number of partitions which are made at each of the n=100 iterations of the algorithm, resulting in ```k=2^I``` partitions.
+- ```bwmd.distance.BWMD(model_path, size_vocab, language, dim, raw_hamming=False)``` creates a distance object from a path containing precomputed lookup tables and compressed vectors. You must specify the total number of vocabulary items, language (for removing stopwords), and dimension of the compressed vectors. If you wish only to use the raw hamming distances and not lookup table values, specify ```raw_hamming=True```.
+- ```bwmd.distance.BWMD().get_distance(text_a, text_b)``` computes the BWMD between two texts as lists of strings. This method assumes that stopwords have already been removed.
+- ```bwmd.distance.BWMD().pairwise(corpus)``` computes a pairwise distance matrix for an array of texts as lists of strings.
+- ```bwmd.distance.BWMD().preprocess_text(text)``` removes stopwords and out-of-vocabulary words from a single text as a list of strings.
+- ```bwmd.distance.BWMD().preprocess_corpus(corpus)``` removes stopwords and out-of-vocabulary words from a corpus as an array of texts as lists of strings.
+- ```bwmd.compressor.Compressor(original_dimensions, reduced_dimensions, compression)``` creates a compressor object which will accept word embeddings of dimension ```original_dimensions``` and compress them to dimension ```reduced_dimensions``` according to the data type specified in ```compression```. 
+- ```bwmd.compressor.Compressor().fit(vectors, epochs=20, batch_size=75)``` fits the compressor to the input vectors by training an autoencoder under the specified hyperparameters.
+- ```bwmd.compressor.Compressor().transform(path, n_vectors, save=False)``` transforms the original vectors residing at the specified path using a trained autoencoder. The ```n_vectors``` parameter specifies what amount of vectors, starting at the beginning of the vector file, will ultimately be transformed and returned. If ```save=True``` the transformed vectors will be saved to the input path.
+- ```bwmd.tools.load_vectors(path, size, expected_dimensions, expected_dtype, skip_first_line=True)``` loads and returns vectors and words from a text file containing words and vector features on each new line. The parameter ```skip_first_line``` should be set to ```True```when the first line of a vector file is vector metadata and not an actual vector.
+- ```bwmd.tools.convert_vectors_to_dict(vectors, words)``` casts aligned arrays of vectors and words into a Python dictionary with words as keys.
+- ```bwmd.partition.build_partitions_lookup_tables(vectors, I, real_value_path, vector_dim)``` uses a special partitioning algorithm similar to bisecting k-means to identify approximate-nearest-neighbors for each input vector. The free parameter ```I``` controls the ```k``` number of partitions which are to be made, leading to ```k = 2^I``` partitions.
 
 ***
 
 ### Obtaining Real-Valued Vectors
 
-To generate compressed vectors, you first need a file containing real-valued vectors as words/values separated by spaces and new lines. You can obtain high-quality vectors for many languages from [FastText](https://fasttext.cc/docs/en/crawl-vectors.html). Make sure you download the .txt files and set ```skip_first_line=True``` when loading vectors from the file. Further details on parsing real-valued vector files when training your own models can be found in the ```fit_model.ipynb``` example in the *notebooks* directory.
-
-***
-
-### Tests
-
-Tests are implemented with the unittest built-in library. You may run all tests from the repository directory with the following command.
-
-```python -m unittest bwmd```
-
-Specific tests may be run by accessing the *test* module.
-
-```$ python -m unittest bwmd.test.test_triplets```
-
-#### Note: Files Required for Running Tests
-
-Because many of the tests require real-valued and/or compressed vectors to function properly, it is impossible to comprehensively evaluate the test-suite without these files. Only by downloading all three of the above models and placing these in the package root directory along with GloVe vectors obtained [here](http://nlp.stanford.edu/data/glove.42B.300d.zip), can you safely run all tests. The GloVe vectors must be named ```glove.txt```. Additionally, to run evaluations on the Wikipedia triplets task to reproduce results seen in the paper, you must download the triplets data [here](https://drive.google.com/uc?export=download&id=1dxSVO1t0mzHs5_mHklO0qaI2lDsCbhv3) and place the unzipped folder in *bwmd/data/datasets*.
+To compute compressed vectors such as those provided above, you must provide a txt file containing words and vector features separated by newline characters. You can obtain high-quality vectors for many languages from [FastText](https://fasttext.cc/docs/en/crawl-vectors.html). If using ```.vec``` files from FastText, ensure you set ```skip_first_line=True``` when loading vectors from a file. Further details on parsing real-valued vector files when training your own models can be found in the ```fit_model.ipynb``` example in the *notebooks* directory.
 
 ***
 
@@ -111,3 +99,5 @@ Because many of the tests require real-valued and/or compressed vectors to funct
 
 - Kusner, Matt & Sun, Y. & Kolkin, N.I. & Weinberger, Kilian. (2015). From word embeddings to document distances. Proceedings of the 32nd International Conference on Machine Learning (ICML 2015). 957-966.
 - Werner, Matheus & Laber, Eduardo. (2019). Speeding up Word Mover's Distance and its variants via properties of distances between embeddings. 
+
+***
