@@ -163,7 +163,7 @@ class BWMD:
                 try:
                     d = self.cache[x][y]
 
-                except KeyError:
+                except (KeyError, AttributeError):
                     d = hamming_distance(self.vectors[x], self.vectors[y])
 
                 pdist[i, j] = d
