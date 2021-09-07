@@ -31,5 +31,5 @@ class TestCasesPartitions(unittest.TestCase):
             vectors_compressed,
             I=6,
             real_value_path=os.path.join(os.getcwd(), "test", "data", f"{self.MODEL}.txt"),
-            vector_size=self.DIM,
+            vector_dim=self.DIM,
         )

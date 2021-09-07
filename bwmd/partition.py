@@ -28,7 +28,7 @@ from collections import Counter
 
 
 def build_partitions_lookup_tables(
-    vectors: dict, I: int, real_value_path: str, save=True, vector_size=300
+    vectors: dict, I: int, real_value_path: str, save=True, vector_dim=300
 ) -> dict:
     """
     Build a set of lookup tables by recursively
