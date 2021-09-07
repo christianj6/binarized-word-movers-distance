@@ -14,7 +14,6 @@ BWMD distance using these cached tables.
 """
 
 from bwmd.tools import load_vectors, convert_vectors_to_dict, hamming_distance
-from bwmd_utils import hamdist
 from nltk.corpus import stopwords
 from tqdm import tqdm
 import pickle
