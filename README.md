@@ -26,14 +26,6 @@ pip install bwmd
 
 ***
 
-### Run Tests
-
-```
-python -m unittest bwmd
-```
-
-***
-
 ### Models
 
 To compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can compute these yourself as described in the ```/notebooks/``` directory, or use one of the models below.
@@ -101,3 +93,13 @@ To compute compressed vectors such as those provided above, you must provide a t
 - Werner, Matheus & Laber, Eduardo. (2019). Speeding up Word Mover's Distance and its variants via properties of distances between embeddings. 
 
 ***
+
+### Deployment
+
+1. Debug local packaging.
+   1. ```pip install -e .```
+2. Build wheel.
+   1. ```python setup.py bdist_wheel sdist```
+3. Upload to PyPI.
+   1. ```twine upload dist/*```
+
