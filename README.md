@@ -28,11 +28,9 @@ pip install bwmd
 
 ### Models
 
-To compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can compute these yourself as described in the ```/notebooks/``` directory, or use one of the models below.
+To compute distances, you must provide a path to a model directory containing a compressed vector file and approximate-nearest-neighbor lookup tables. You can compute these yourself as described in the ```/notebooks/``` directory, or use one of the models provided below.
 
-| FastText-EN (512-bit) | GloVe-EN (512-bit) | Word2Vec-EN (512-bit) |
-| --------------------- | ------------------ | --------------------- |
-| [Download]()          | [Download]()       | [Download]()          |
+- [FastText-EN (512-bit)](https://drive.google.com/uc?export=download&id=1Xk7kN1aT-a-U4Hj1jSL5LwXGvKDsWguS)
 
 ***
 
@@ -51,14 +49,14 @@ corpus = [
 ]
 # Instantiate a distance object.
 bwmd = BWMD(
-	model_path='glove-en-512',
+	model_path='fasttext-en-512',
 	dim=512,
 )
 # Get pairwise distances.
 bwmd.pairwise(corpus)
->>> array([[0.        , 0.23999023, 0.31298828],
-           [0.23999023, 0.        , 0.31502279],
-           [0.31298828, 0.31502279, 0.        ]])
+>>> array([[0.        , 0.25683594, 0.29711914],
+       	   [0.25683594, 0.        , 0.27783203],
+     	   [0.29711914, 0.27783203, 0.        ]])
 ```
 
 Sample code for this minimal start and for training your own compressed vectors for any language can be found in the ```/notebooks/``` directory.
@@ -93,13 +91,4 @@ To compute compressed vectors such as those provided above, you must provide a t
 - Werner, Matheus & Laber, Eduardo. (2019). Speeding up Word Mover's Distance and its variants via properties of distances between embeddings. 
 
 ***
-
-### Deployment
-
-1. Debug local packaging.
-   1. ```pip install -e .```
-2. Build wheel.
-   1. ```python setup.py bdist_wheel sdist```
-3. Upload to PyPI.
-   1. ```twine upload dist/*```
 
