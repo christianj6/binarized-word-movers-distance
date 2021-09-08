@@ -6,7 +6,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="bwmd",
-    version="0.2.0",
+    version="0.2.1",
     description="Fast text similarity with binary encoded word embeddings.",
     url="https://github.com/christianj6/binarized-word-movers-distance.git",
     author="Christian Johnson",
