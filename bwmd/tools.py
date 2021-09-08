@@ -142,7 +142,11 @@ def save_vectors(
     with open(path, "w") as f:
         # Save vectors to new line with tab separating word and vector values.
         for word, vector in zip(words, vectors):
-            vector = np.packbits(vector.astype("bool_"))
-            f.write(word + "\t")
-            f.write("\t".join(str(num) for num in vector))
-            f.write("\n")
+            try:
+                vector = np.packbits(vector.astype("bool_"))
+                f.write(word + "\t")
+                f.write("\t".join(str(num) for num in vector))
+                f.write("\n")
+
+            except Exception:
+                pass
