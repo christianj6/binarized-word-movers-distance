@@ -7,25 +7,214 @@ lower bound textual distance metric.
 USAGE
 Load a set of vectors using the load_vectors method from
 bwmd.compressor, then convert these vectors to a dict
-using the utility method.By subsequently instantiating a 
+using the utility method.By subsequently instantiating a
 BWMD class instance referring to the set
 of vectors used to construct the tables, you may compute the
 BWMD distance using these cached tables.
 """
 
 from bwmd.tools import load_vectors, convert_vectors_to_dict, hamming_distance
+from gensim.corpora.dictionary import Dictionary
+from sklearn.feature_extraction.text import TfidfVectorizer
+import scipy.distance as distance_scipy
+from pyemd import emd
 from nltk.corpus import stopwords
 from tqdm import tqdm
 import pickle
 import numpy as np
+import abc
 
 
-class BWMD:
+class AbstractDistanceMetric(abc.ABC):
+    def __init__(self, language: str):
+        self.stopwords = stopwords.words(language)
+
+    @abc.abstractmethod
+    def _get_text_mask(self, text) -> list:
+        return None
+
+    def preprocess_text(self, text):
+        mask = self._get_text_mask(text)
+
+        return np.array(text)[mask].tolist()
+
+    def preprocess_corpus(self, corpus: list):
+        out = []
+        for text in corpus:
+            out.append(self.preprocess_text(text))
+
+        return out
+
+    @abc.abstractmethod
+    def get_distance(self, text_a: list, text_b: list) -> float:
+        return None
+
+
+class WMD(AbstractDistanceMetric):
+    def __init__(self, language):
+        super().__init__(language)
+
+    def _get_text_mask(self, text) -> list:
+        mask = [False if a in self.stopwords else True for a in text]
+
+        return mask
+
+    def get_distance(self, text_a: list, text_b: list) -> list:
+        """
+        Get word-movers distance cf. Kusner (2016).
+        This is basically a copy of the gensim
+        implementation, citations below:
+
+        .. Ofir Pele and Michael Werman,
+            "A linear time histogram metric for improved SIFT matching".
+        .. Ofir Pele and Michael Werman,
+            "Fast and robust earth mover's distances".
+        .. Matt Kusner et al. "From Word Embeddings To Document Distances".
+
+        [Source]
+        https://tedboy.github.io/nlps/_modules/gensim/models/word2vec.html#Word2Vec.wmdistance
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Word mover's distance.
+        """
+        # Create dictionary necessary for nbow representation.
+        dictionary = Dictionary(documents=[text_a, text_b])
+        vocab_len = len(dictionary)
+
+        def nbow(document):
+            d = np.zeros(vocab_len, dtype=np.double)
+            nbow = dictionary.doc2bow(document)  # Word frequencies.
+            doc_len = len(document)
+            for idx, freq in nbow:
+                d[idx] = freq / float(doc_len)  # Normalized word frequencies.
+
+            return d
+
+        # Sets for faster look-up.
+        text_a_set = set(text_a)
+        text_b_set = set(text_b)
+
+        # Compute euclidean distance matrix.
+        distance_matrix = np.zeros((vocab_len, vocab_len), dtype=np.double)
+        for i, t1 in dictionary.items():
+            for j, t2 in dictionary.items():
+                if t1 not in text_a_set or t2 not in text_b_set:
+                    continue
+
+                # Compute Euclidean distance between word vectors.
+                distance_matrix[i, j] = np.sqrt(
+                    np.sum((self.vectors[t1] - self.vectors[t2]) ** 2)
+                )
+
+        # Compute nBOW representation of documents.
+        d1 = nbow(text_a)
+        d2 = nbow(text_b)
+
+        # Compute WMD.
+        return emd(d1, d2, distance_matrix)
+
+
+class WCD(AbstractDistanceMetric):
+    def __init__(self, vectors: dict, language: str):
+        self.vectors = vectors
+        super().__init__(language)
+
+    def _get_text_mask(self, text) -> list:
+        mask = [
+            False if a in self.stopwords or a not in self.vectors else True
+            for a in text
+        ]
+
+        return mask
+
+    def get_distance(self, text_a: list, text_b: list) -> float:
+        """
+        Get word-centroid distance
+        cf. Kusner (2016).
+
+        Parameters
+        ---------
+            text_a : list
+                First text.
+            text_b : list
+                Second text.
+
+        Returns
+        ----------
+            distance : float
+                Word centroid distance.
+        """
+        # Get all the embeddings.
+        a_emb = [self.vectors[a] for a in text_a]
+        b_emb = [self.vectors[b] for b in text_b]
+        # Return distance between mean embeddings.
+        return distance_scipy.cosine(
+            np.mean(a_emb, axis=0), np.mean(b_emb, axis=0)
+        )
+
+
+class TFIDF(AbstractDistanceMetric):
+    def __init__(self, corpus: list, language: str, l1_norm=False):
+        norm = "l1" if l1_norm is True else "l2"
+        self.vectorizer = TfidfVectorizer(norm=norm)
+        self.vectorizer.fit(corpus)
+        super().__init__(language)
+
+    def _get_text_mask(self, text) -> list:
+        mask = [False if a in self.stopwords else True for a in text]
+
+        return mask
+
+    def preprocess_corpus(self, corpus: list):
+        out = []
+        for text in corpus:
+            # join the texts for tfidf vectorization.
+            out.append(" ".join(self.preprocess_text(text)))
+
+        return out
+
+    def get_distance(self, text_a: str, text_b: str) -> float:
+        a, b = self.vectorizer.transform([text_a, text_b])
+
+        return distance_scipy.cosine(a, b)
+
+
+class RWMD(AbstractDistanceMetric):
+    def __init__(self):
+        # todo: init
+        return None
+
+    # todo: preprocessing we can probably inherit in child classes
+
+    def get_distance(self, text_a: list, text_b: list) -> float:
+        # todo: generalize get_pairwise_distance_matrix
+        # todo: get distance unidirectional
+        # todo: get distance unidirectional
+        # todo: 'aggregate_unidirectional distances'
+        return None
+
+
+class RelRWMD(RWMD):
+    def __init__(self):
+        # todo: can probably copy from parent
+        return None
+
+    # todo: inherit preprocessing from parent
+    # todo: modify methods to achieve the relrwmd
+
+
+class BWMD(RelRWMD):
     """
-    Object for managing in-memory cache of precomputed
-    word vector distance tables, and for calculating
-    the binarized word mover's distance between
-    pairs of texts.
+    .
     """
 
     def __init__(
@@ -37,42 +226,13 @@ class BWMD:
         raw_hamming: bool = False,
     ) -> None:
         """
-        Initialize table key and cache.
-
-        Parameters
-        ---------
-            model_path : str
-                Path to model file containing
-                compressed vectors and optionally
-                a set of computed lookup tables.
-            dim : int
-                Number of dimensions corresponding to
-                directory for tables. If left blank, assume
-                that the user intends to use uncompressed
-                vectors eg for computing other distance metrics.
-            with_syntax : bool
-                y/n to use syntax in the distance calculations.
-            raw_hamming : bool
-                y/n to use raw hamming distances based on binary vectors, rather
-                than cosine distances from a precomputed lookup table.
-            full_cache : bool
-                y/n simply load all tables into a single cache. This will allow
-                for faster lookup but may be memory-intensive depending
-                on the machine and number of computed tables / their
-                individual sizes.
-            size_vocab : int
-                Size of the vocabulary to load. In many cases, it is unnecessary
-                to load the full vocabulary considering vectors are ordered by
-                frequency. Using more words will increase accuracy but also
-                decreases speed due to slower lookup times.
+        .
         """
         # Set vocab size.
         self.size_vocab = size_vocab
         path_to_vectors = f"{model_path}\\vectors.txtc"
         self.dim = dim
-        self.stopwords = stopwords.words("english")
         dtype = "bool_"
-
         if not raw_hamming:
             with open(f"{model_path}\\table", "rb") as f:
                 self.cache = pickle.load(f)
@@ -89,6 +249,17 @@ class BWMD:
         self.vectors = convert_vectors_to_dict(vectors, words)
         # Cast words to set for faster lookup.
         self.words = set(words)
+
+        # todo: refactor given inheritance structure
+        super().__init__(language)
+
+    def _get_text_mask(self, text: list) -> list:
+        mask = [
+            False if a in self.stopwords or not a in self.words else True
+            for a in text
+        ]
+
+        return mask
 
     def get_distance(self, text_a: list, text_b: list) -> float:
         """
@@ -168,23 +339,6 @@ class BWMD:
                 pdist[i, j] = d
 
         return pdist
-
-    def preprocess_text(self, text):
-        mask = [
-            False if a in self.stopwords or not a in self.words else True for a in text
-        ]
-        return np.array(text)[mask].tolist()
-
-    def preprocess_corpus(self, corpus: list):
-        """
-        Preprocess all texts by removing stopwords
-        and words not found in the vector tables.
-        """
-        out = []
-        for text in corpus:
-            out.append(self.preprocess_text(text))
-
-        return out
 
     def pairwise(self, corpus: list) -> "np.array":
         """

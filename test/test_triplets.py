@@ -1,6 +1,8 @@
 import unittest
 from bwmd.tools import load_vectors, convert_vectors_to_dict
-from bwmd.distance import BWMD
+from bwmd.compressor import Compressor
+from bwmd.partition import build_partitions_lookup_tables
+from bwmd.distance import BWMD, WMD, RWMD, RelRWMD, WCD, TFIDF
 from tqdm import tqdm
 import os
 import pickle
@@ -27,7 +29,9 @@ def load_wikipedia_corpus(n_samples):
     for i in tqdm(range(n_samples)):
         try:
             with open(
-                os.path.join(os.getcwd(), "test", "data", "triplets", f"wikipedia-{i}"),
+                os.path.join(
+                    os.getcwd(), "test", "data", "triplets", f"wikipedia-{i}"
+                ),
                 "rb",
             ) as f:
                 corpus.append(pickle.load(f))
@@ -38,7 +42,59 @@ def load_wikipedia_corpus(n_samples):
     return corpus
 
 
-def evaluate_triplets_task(model, dim, n_samples):
+def get_empty_results_dict(metrics: list) -> dict:
+    """
+    .
+    """
+    results = {
+        "time_online": {m: 0 for m in metrics},
+        "time_offline": {m: 0 for m in metrics},
+        "test_error": {m: 0 for m in metrics},
+    }
+
+    return results
+
+
+def get_encoded_vectors(
+    fp: str, original_dimensions: int, reduced_dimensions: int
+) -> dict:
+    """
+    .
+    """
+    # fit autoencder
+    vectors_original, words = load_vectors(
+        path=fp,
+        size=100_000,
+        expected_dimensions=original_dimensions,
+        skip_first_line=True,
+    )
+    compressor = Compressor(
+        original_dimensions=original_dimensions,
+        reduced_dimensions=reduced_dimensions,
+        compression="bool_",
+    )
+    compressor.fit(vectors_original, epochs=10)
+    # save encoded vectors
+    output_dir = compressor.transform(fp, save=True, n_vectors=30_000)
+    # create lookup tables for the exported model
+    vectors_encoded, words = load_vectors(
+        path=f"{output_dir}\\vectors.txtc",
+        size=30_000,
+        expected_dimensions=REDUCED_DIM,
+        expected_dtype=COMPRESSION,
+    )
+    vectors_encoded_dict = convert_vectors_to_dict(vectors_encoded, words)
+
+    return vectors_encoded_dict
+
+
+def evaluate_triplets_task(
+    model_name: str,
+    model_filepath: str,
+    input_dim: int,
+    encoded_dim: int,
+    n_samples: int,
+) -> dict:
     """
     Score a given model on the wikipedia triplets,
     returning the test error as a percentage.
@@ -64,38 +120,107 @@ def evaluate_triplets_task(model, dim, n_samples):
             of tuples for which the incorrect
             evaluation was made.
     """
-    # Initialize BWMD.
-    print("Initializing bwmd object ...")
-    bwmd = BWMD(
-        model_path=os.path.join(os.getcwd(), "test", "data", model),
-        dim=dim,
-        size_vocab=1000,
-        language="english",
+    # organize eval metrics
+    metrics = ["wmd", "wcd", "rwmd", "relrwmd", "tfidf", "tfidfl1", "bwmd"]
+    # organize corresponding objects
+    objects = [WMD, WCD, RWMD, RelRWMD, TFIDF, TFIDF, BWMD]
+    # organize results in hash table
+    results = get_empty_results_dict(metrics)
+
+    # todo: start timer
+
+    # get encoded vectors, tracking offline compute time
+    vectors_encoded_dict = get_encoded_vectors(
+        model_filepath, input_dim, encoded_dim
     )
-    # Wikipedia corpus.
+
+    # todo: stop timer add to bwmd
+    # todo: start timer
+
+    # get lookup tables
+    lookup_table_path = build_partitions_lookup_tables(
+        vectors_encoded_dict,
+        I=11,
+        real_value_path=model_filepath,
+        vector_dim=encoded_dim,
+    )
+    # we use the same lookup tables for bwmd and rel-rwmd,
+    # thus this offline computation time is added to both metrics
+
+    # todo: stop timer add to bwmd and rel-rwmd
+
+    # Prepare Wikipedia corpus.
     corpus = load_wikipedia_corpus(n_samples)
-    start = time.time()
-    # List to store the errors.
-    score = []
-    print("Computing score ...")
-    for triplet in tqdm(corpus):
-        # Split the texts and remove unattested tokens.
-        a, b, c = bwmd.preprocess_corpus(triplet)
-        # Get distances for assessment.
-        a_b = bwmd.get_distance(a, b)
-        a_c = bwmd.get_distance(a, c)
-        b_c = bwmd.get_distance(b, c)
-        # Conditional for scoring
-        if a_b < a_c and a_b < b_c:
-            # Just use a binary scoring method.
-            score.append(0)
+    # joined corpus needed for tfidf vectorizer
+    corpus_joined = [" ".join(doc) for doc in corpus]
+    # organize parameters for distance objects
+    params = [
+        {"language": "english"},  # wmd
+        {"language": "english"},  # wcd
+        {"language": "english"},  # rwmd
+        {"language": "english"},  # relrwmd
+        {
+            "l1_norm": False,
+            "language": "english",
+            "corpus": corpus_joined,
+        },  # tfidf
+        {
+            "l1_norm": True,
+            "language": "english",
+            "corpus": corpus_joined,
+        },  # tfidfl1
+        {
+            "model_path": lookup_table_path,
+            "dim": encoded_dim,
+            "size_vocab": 30_000,
+            "language": "english",
+        },  # bwmd
+    ]
 
-        else:
-            score.append(1)
+    for i, (m, o, p) in enumerate(zip(metrics, objects, params)):
 
-    end = time.time()
-    # Return simple average as percentage error.
-    return ((end - start) / 60) / n_samples, sum(score) / len(score)
+        # todo: start timer
+
+        obj = o(**p)
+        objects[i] = obj
+
+        # todo: stop timer update results
+
+    # todo: update offline computations
+
+    for obj, name in zip(objects, metrics):
+        start = time.time()
+        # List to store the errors.
+        score = []
+        for triplet in tqdm(corpus):
+            # Split the texts and remove unattested tokens.
+            a, b, c = obj.preprocess_corpus(triplet)
+            # Get distances for assessment.
+            a_b = obj.get_distance(a, b)
+            a_c = obj.get_distance(a, c)
+            b_c = obj.get_distance(b, c)
+            # Conditional for scoring
+            if a_b < a_c and a_b < b_c:
+                # Just use a binary scoring method.
+                score.append(0)
+
+            else:
+                score.append(1)
+
+        end = time.time()
+        # update online computations
+        results["time_online"][name] = ((end - start) / 60) / n_samples
+        # update score; simple average of correct/incorrect triplets
+        results["test_error"][name] = sum(score) / len(score)
+
+    return results
+
+
+def print_results(results: dict) -> None:
+    """
+    Parses and prints results to stdout.
+    """
+    return None
 
 
 class TestCaseTriplets(unittest.TestCase):
@@ -104,10 +229,21 @@ class TestCaseTriplets(unittest.TestCase):
     evaluation task, cf Werner (2019).
     """
 
-    MODELS = ["glove"]
-    N_SAMPLES = 25
+    # names of models for reporting
+    MODELS = ["fasttext"]
+    # absolute path to corresponding vectors
+    VECTOR_PATHS[""]
+    # number of samples to use from wikipedia corpus
+    N_SAMPLES = 0
 
     def test_wikipedia(self):
-        for m in self.MODELS:
-            compute, score = evaluate_triplets_task(m, 512, self.N_SAMPLES)
-            print(f"{m} - {score} - {compute}")
+        """
+        Evaluates all metrics
+        against the wikipedia triplets,
+        allowing one to reproduce the results
+        found in the original paper.
+        """
+
+        for m, fp in zip(self.MODELS, self.VECTOR_PATHS):
+            results = evaluate_triplets_task(m, fp, 300, 512, self.N_SAMPLES)
+            print_results(results)
