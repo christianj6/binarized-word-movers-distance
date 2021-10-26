@@ -21,7 +21,7 @@ setup(
         "tqdm==4.61.2",
         "scipy==1.7.1",
         "nltk==3.6.2",
-        "pyemd==0,5.1",
+        "pyemd==0.5.1",
         "gensim==3.8.3",
         "scikit-learn==0.24.2",
         "scipy==1.4.1",

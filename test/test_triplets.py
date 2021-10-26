@@ -94,8 +94,8 @@ def get_encoded_vectors(
     vectors_encoded, words = load_vectors(
         path=f"{output_dir}\\vectors.txtc",
         size=30_000,
-        expected_dimensions=REDUCED_DIM,
-        expected_dtype=COMPRESSION,
+        expected_dimensions=reduced_dimensions,
+        expected_dtype="bool_",
     )
     vectors_encoded_dict = convert_vectors_to_dict(vectors_encoded, words)
     vectors_original_dict = convert_vectors_to_dict(
@@ -168,7 +168,7 @@ def evaluate_triplets_task(
     # Prepare Wikipedia corpus.
     corpus = load_wikipedia_corpus(n_samples)
     # joined corpus needed for tfidf vectorizer
-    corpus_joined = [" ".join(doc) for doc in corpus]
+    corpus_joined = [" ".join(doc) for triplet in corpus for doc in triplet]
     # organize parameters for distance objects
     params = [
         {"language": "english", "vectors": vectors_original_dict},  # wmd
@@ -246,7 +246,7 @@ class TestCaseTriplets(unittest.TestCase):
     # names of models for reporting
     MODELS = ["fasttext"]
     # absolute path to corresponding vectors
-    VECTOR_PATHS["./cc.de.300.bin"]
+    VECTOR_PATHS = ["./crawl-300d-2M.vec"]
     # number of samples to use from wikipedia corpus
     N_SAMPLES = 5
 

@@ -98,7 +98,9 @@ class Encoder(tf.keras.layers.Layer):
         """
         if compression == "bool_":
             # Binarize the latent representation.
-            return lambda x: np.array([[0 if i <= 0.5 else 1 for i in y] for y in x])
+            return lambda x: np.array(
+                [[0 if i <= 0.5 else 1 for i in y] for y in x]
+            )
 
         elif compression == "int8":
             # Linear rescaling of values to within int8 range.
@@ -131,7 +133,9 @@ class Decoder(tf.keras.layers.Layer):
     to reproduce the original encoder input.
     """
 
-    def __init__(self, reduced_dimensions: int, original_dimensions: int = 300) -> None:
+    def __init__(
+        self, reduced_dimensions: int, original_dimensions: int = 300
+    ) -> None:
         """
         Initialize layers.
 
@@ -228,7 +232,10 @@ def get_rank(y_pred):
             Sorted tensor.
     """
     # Start ranking at 1 instead of zero.
-    rank = tf.argsort(tf.argsort(y_pred, axis=-1, direction="ASCENDING"), axis=-1) + 1
+    rank = (
+        tf.argsort(tf.argsort(y_pred, axis=-1, direction="ASCENDING"), axis=-1)
+        + 1
+    )
     return y_pred
 
 
@@ -309,7 +316,9 @@ def pairwise_distance(feature: "TensorLike", squared: bool = False):
     # Calculate the distances.
     pairwise_distances_squared = (
         tf.math.add(
-            tf.math.reduce_sum(tf.math.square(feature), axis=[1], keepdims=True),
+            tf.math.reduce_sum(
+                tf.math.square(feature), axis=[1], keepdims=True
+            ),
             tf.math.reduce_sum(
                 tf.math.square(tf.transpose(feature)), axis=[0], keepdims=True
             ),
@@ -317,7 +326,9 @@ def pairwise_distance(feature: "TensorLike", squared: bool = False):
         - 2.0 * tf.matmul(feature, tf.transpose(feature))
     )
     # Deal with numerical inaccuracies. Set small negatives to zero.
-    pairwise_distances_squared = tf.math.maximum(pairwise_distances_squared, 0.0)
+    pairwise_distances_squared = tf.math.maximum(
+        pairwise_distances_squared, 0.0
+    )
     # Get the mask where the zero distances are at.
     error_mask = tf.math.less_equal(pairwise_distances_squared, 0.0)
     # Optionally take the sqrt.
@@ -338,7 +349,9 @@ def pairwise_distance(feature: "TensorLike", squared: bool = False):
     mask_offdiagonals = tf.ones_like(pairwise_distances) - tf.linalg.diag(
         tf.ones([num_data])
     )
-    pairwise_distances = tf.math.multiply(pairwise_distances, mask_offdiagonals)
+    pairwise_distances = tf.math.multiply(
+        pairwise_distances, mask_offdiagonals
+    )
     return pairwise_distances
 
 
@@ -360,7 +373,9 @@ def reconstruction_loss(model, input_: "tf.Tensor") -> "tf.Tensor":
             as tf.Tensor.
     """
     # Compute standard reconstruction loss.
-    reconstruction_loss = tf.reduce_mean(tf.square(tf.subtract(model(input_), input_)))
+    reconstruction_loss = tf.reduce_mean(
+        tf.square(tf.subtract(model(input_), input_))
+    )
     # Compute spearman correlation coefficient.
     spearman = spearman_correlation(
         pairwise_distance(input_), pairwise_distance(model(input_))
@@ -409,7 +424,9 @@ def train(
     # Gradient tape for persistent data.
     with tf.GradientTape() as tape:
         # Compute gradients.
-        gradients = tape.gradient(loss(model, input_), model.trainable_variables)
+        gradients = tape.gradient(
+            loss(model, input_), model.trainable_variables
+        )
 
     variables = zip(gradients, model.trainable_variables)
     # Apply gradients.
@@ -503,10 +520,14 @@ class Compressor:
         # Sequential values for piecewise learning rate change.
         values = [1e-5, 1e-7]
 
-        return tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries, values)
+        return tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+            boundaries, values
+        )
 
     @staticmethod
-    def prepare_vectors(vectors: list, batch_size: int, shuffle=True) -> "tf.Tensor":
+    def prepare_vectors(
+        vectors: list, batch_size: int, shuffle=True
+    ) -> "tf.Tensor":
         """
         Cast vectors into tensorflow dataset object
         for batching and/or shuffling for improved
@@ -613,7 +634,9 @@ class Compressor:
             vectors_encoded.append(code)
 
         if save:
-            save_vectors(export_path, words, vectors_encoded, compression=compression)
+            save_vectors(
+                export_path, words, vectors_encoded, compression=compression
+            )
 
         return output_dir
 

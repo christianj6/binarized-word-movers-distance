@@ -16,7 +16,7 @@ BWMD distance using these cached tables.
 from bwmd.tools import load_vectors, convert_vectors_to_dict, hamming_distance
 from gensim.corpora.dictionary import Dictionary
 from sklearn.feature_extraction.text import TfidfVectorizer
-import scipy.distance as distance_scipy
+import scipy.spatial.distance as distance_scipy
 from pyemd import emd
 from nltk.corpus import stopwords
 from tqdm import tqdm
@@ -210,9 +210,9 @@ class TFIDF(AbstractDistanceMetric):
 
     def get_distance(self, text_a: str, text_b: str) -> float:
         # transform raw texts to tfidf representation.
-        a, b = self.vectorizer.transform([text_a, text_b])
+        ret = self.vectorizer.transform([text_a, text_b])
 
-        return distance_scipy.cosine(a, b)
+        return distance_scipy.cosine(ret[0].A, ret[1].A)
 
 
 class RWMD(AbstractDistanceMetric):
@@ -315,12 +315,12 @@ class RWMD(AbstractDistanceMetric):
     @classmethod
     def _finalize_distance_computation(cls, pdist: np.ndarray) -> float:
         # get unidirectional distances
-        d1 = self.min_distance_unidirectional(pdist)
+        d1 = cls.min_distance_unidirectional(pdist)
         # transposing the array allows us to get min dist
         # in the opposite direction
-        d2 = self.min_distance_unidirectional(pdist.T)
+        d2 = cls.min_distance_unidirectional(pdist.T)
         # aggregate unidirectional distances
-        return self.aggregate_unidirectional_distances(d1, d2)
+        return cls.aggregate_unidirectional_distances(d1, d2)
 
     def get_distance(self, text_a: list, text_b: list) -> float:
         # distance function: euclidean distance
@@ -353,6 +353,12 @@ class RelRWMD(RWMD):
         # load the cache
         self.cache = self._load_cache(cache_path)
         self.stopwords = stopwords.words(language)
+
+    def _get_text_mask(self, text) -> list:
+        # ignore stopwords
+        mask = [False if a in self.stopwords else True for a in text]
+
+        return mask
 
     @staticmethod
     def _load_cache(cache_path) -> dict:
@@ -409,6 +415,16 @@ class BWMD(RelRWMD):
         # finish initialization
         super().__init__(language, model_path)
 
+    def _get_text_mask(self, text) -> list:
+        # ignore stopwords and words not represented by
+        # the embedding model.
+        mask = [
+            False if a in self.stopwords or a not in self.words else True
+            for a in text
+        ]
+
+        return mask
+
     def get_distance(self, text_a: list, text_b: list) -> float:
         """
         Compute the BWMD when provided with two texts.
@@ -462,7 +478,7 @@ class BWMD(RelRWMD):
             self.vectors[a], self.vectors[b]
         )
         pdist = self.get_pairwise_distance_matrix(
-            text_a, text_b, distance=distance, default=default
+            text_a, text_b, dist=distance, default=default
         )
 
         if pdist.shape[0] == 0 or pdist.T.shape[0] == 0:
