@@ -234,6 +234,23 @@ def print_results(results: dict) -> None:
     """
     Parses and prints results to stdout.
     """
+    print()
+    print("Offline Computation Time in Seconds")
+    for model, value in results["time_offline"].items():
+        print(f"{model}\t{value}")
+
+    print("-" * 20)
+    print()
+    print("Online Computation Time in Minutes/Iter")
+    for model, value in results["time_online"].items():
+        print(f"{model}\t{value}")
+
+    print("-" * 20)
+    print()
+    print("Test error as a value between 0 and 1")
+    for model, value in results["test_error"].items():
+        print(f"{model}\t{value}")
+
     return None
 
 
