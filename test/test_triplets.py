@@ -44,7 +44,21 @@ def load_wikipedia_corpus(n_samples):
 
 def get_empty_results_dict(metrics: list) -> dict:
     """
-    .
+    Returns an empty data structure intended to
+    store test error and compute time for
+    the different evaluation metrics.
+
+    Parameters
+    ---------
+        metrics : list[str]
+            List of metric names as strings
+
+    Returns
+    ---------
+        results : dict[str, dict]
+            Empty results dict organizing
+            online, offline compute and test
+            error.
     """
     results = {
         "time_online": {m: 0 for m in metrics},
@@ -62,7 +76,7 @@ def get_encoded_vectors(
     .
     """
     # fit autoencder
-    vectors_original, words = load_vectors(
+    vectors_original, words_original = load_vectors(
         path=fp,
         size=100_000,
         expected_dimensions=original_dimensions,
@@ -84,8 +98,11 @@ def get_encoded_vectors(
         expected_dtype=COMPRESSION,
     )
     vectors_encoded_dict = convert_vectors_to_dict(vectors_encoded, words)
+    vectors_original_dict = convert_vectors_to_dict(
+        vectors_original, words_original
+    )
 
-    return vectors_encoded_dict
+    return vectors_encoded_dict, vectors_original_dict
 
 
 def evaluate_triplets_task(
@@ -126,17 +143,16 @@ def evaluate_triplets_task(
     objects = [WMD, WCD, RWMD, RelRWMD, TFIDF, TFIDF, BWMD]
     # organize results in hash table
     results = get_empty_results_dict(metrics)
-
-    # todo: start timer
-
+    # start timer
+    t = time.time()
     # get encoded vectors, tracking offline compute time
-    vectors_encoded_dict = get_encoded_vectors(
+    vectors_encoded_dict, vectors_original_dict = get_encoded_vectors(
         model_filepath, input_dim, encoded_dim
     )
-
-    # todo: stop timer add to bwmd
-    # todo: start timer
-
+    # stop timer add to bwmd
+    results["time_offline"]["bwmd"] += time.time() - t
+    # start timer
+    t = time.time()
     # get lookup tables
     lookup_table_path = build_partitions_lookup_tables(
         vectors_encoded_dict,
@@ -146,19 +162,19 @@ def evaluate_triplets_task(
     )
     # we use the same lookup tables for bwmd and rel-rwmd,
     # thus this offline computation time is added to both metrics
-
-    # todo: stop timer add to bwmd and rel-rwmd
-
+    a = time.time() - t
+    results["time_offline"]["bwmd"] += a
+    results["time_offline"]["relrwmd"] += a
     # Prepare Wikipedia corpus.
     corpus = load_wikipedia_corpus(n_samples)
     # joined corpus needed for tfidf vectorizer
     corpus_joined = [" ".join(doc) for doc in corpus]
     # organize parameters for distance objects
     params = [
-        {"language": "english"},  # wmd
-        {"language": "english"},  # wcd
-        {"language": "english"},  # rwmd
-        {"language": "english"},  # relrwmd
+        {"language": "english", "vectors": vectors_original_dict},  # wmd
+        {"language": "english", "vectors": vectors_original_dict},  # wcd
+        {"language": "english", "vectors": vectors_original_dict},  # rwmd
+        {"language": "english", "cache_path": lookup_table_path},  # relrwmd
         {
             "l1_norm": False,
             "language": "english",
@@ -178,15 +194,13 @@ def evaluate_triplets_task(
     ]
 
     for i, (m, o, p) in enumerate(zip(metrics, objects, params)):
-
-        # todo: start timer
-
+        # start timer
+        t = time.time()
+        # build object and store
         obj = o(**p)
         objects[i] = obj
-
-        # todo: stop timer update results
-
-    # todo: update offline computations
+        # stop timer update results
+        results["time_offline"][m] += time.time() - t
 
     for obj, name in zip(objects, metrics):
         start = time.time()
@@ -232,9 +246,9 @@ class TestCaseTriplets(unittest.TestCase):
     # names of models for reporting
     MODELS = ["fasttext"]
     # absolute path to corresponding vectors
-    VECTOR_PATHS[""]
+    VECTOR_PATHS["./cc.de.300.bin"]
     # number of samples to use from wikipedia corpus
-    N_SAMPLES = 0
+    N_SAMPLES = 5
 
     def test_wikipedia(self):
         """

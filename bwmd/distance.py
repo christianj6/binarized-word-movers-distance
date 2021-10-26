@@ -23,6 +23,7 @@ from tqdm import tqdm
 import pickle
 import numpy as np
 import abc
+from typing import Callable
 
 
 class AbstractDistanceMetric(abc.ABC):
@@ -51,11 +52,20 @@ class AbstractDistanceMetric(abc.ABC):
 
 
 class WMD(AbstractDistanceMetric):
-    def __init__(self, language):
+    """
+    Original Word Mover's Distance cf Kusner (2016).
+    """
+
+    def __init__(self, vectors: np.ndarray, language: str):
+        self.vectors = vectors
         super().__init__(language)
 
     def _get_text_mask(self, text) -> list:
-        mask = [False if a in self.stopwords else True for a in text]
+        # ignore stopwords and words we cannot embed.
+        mask = [
+            False if a in self.stopwords or a not in self.vectors else True
+            for a in text
+        ]
 
         return mask
 
@@ -110,9 +120,9 @@ class WMD(AbstractDistanceMetric):
                 if t1 not in text_a_set or t2 not in text_b_set:
                     continue
 
-                # Compute Euclidean distance between word vectors.
-                distance_matrix[i, j] = np.sqrt(
-                    np.sum((self.vectors[t1] - self.vectors[t2]) ** 2)
+                # Compute Cosine distance between word vectors.
+                distance_matrix[i, j] = distance_scipy.cosine(
+                    self.vectors[t1], self.vectors[t2]
                 )
 
         # Compute nBOW representation of documents.
@@ -124,11 +134,17 @@ class WMD(AbstractDistanceMetric):
 
 
 class WCD(AbstractDistanceMetric):
+    """
+    Word Centroid Distance; Cosine distance between
+    unweighted average word embeddings of each text.
+    """
+
     def __init__(self, vectors: dict, language: str):
         self.vectors = vectors
         super().__init__(language)
 
     def _get_text_mask(self, text) -> list:
+        # ignore stopwords and words we cannot embed.
         mask = [
             False if a in self.stopwords or a not in self.vectors else True
             for a in text
@@ -163,13 +179,23 @@ class WCD(AbstractDistanceMetric):
 
 
 class TFIDF(AbstractDistanceMetric):
+    """
+    Cosine distance between TFIDF vectors
+    for each text. First a vectorizer must be fitted
+    to the entire corpus before each text
+    can be vectorized during distance calculation.
+    """
+
     def __init__(self, corpus: list, language: str, l1_norm=False):
+        # ability to use different normalization strategies
+        # to address concerns by Sato (2021).
         norm = "l1" if l1_norm is True else "l2"
         self.vectorizer = TfidfVectorizer(norm=norm)
         self.vectorizer.fit(corpus)
         super().__init__(language)
 
     def _get_text_mask(self, text) -> list:
+        # ignore stopwords. embedding model is irrelevant.
         mask = [False if a in self.stopwords else True for a in text]
 
         return mask
@@ -183,38 +209,183 @@ class TFIDF(AbstractDistanceMetric):
         return out
 
     def get_distance(self, text_a: str, text_b: str) -> float:
+        # transform raw texts to tfidf representation.
         a, b = self.vectorizer.transform([text_a, text_b])
 
         return distance_scipy.cosine(a, b)
 
 
 class RWMD(AbstractDistanceMetric):
-    def __init__(self):
-        # todo: init
-        return None
+    """
+    Relaxed Word Mover's Distance lower-bound
+    cf Kusner (2016). Move all mass from each token
+    to its nearest neigbbor in the other document in both
+    directions, then take the maximum of these two
+    unidirectional distances.
+    """
 
-    # todo: preprocessing we can probably inherit in child classes
+    def __init__(self, vectors: np.ndarray, language: str):
+        self.vectors = vectors
+        # Create separate attr because it is faster to check the list.
+        self.words = list(self.vectors.keys())
+        super().__init__(language)
+
+    def _get_text_mask(self, text) -> list:
+        # ignore stopwords and words not represented by
+        # the embedding model.
+        mask = [
+            False if a in self.stopwords or a not in self.words else True
+            for a in text
+        ]
+
+        return mask
+
+    @staticmethod
+    def get_pairwise_distance_matrix(
+        text_a: list, text_b: list, dist: Callable, default: Callable
+    ) -> np.ndarray:
+        """
+        Computes a pairwise distance matrix given the tokens
+        in text_a and text_b, using the dist callable to compute
+        distances where possible, otherwise supplying a default
+        maximum value defined by default.
+
+        Parameters
+        ---------
+            text_a : list[str]
+                List of tokens in text a as strings.
+            text_b : list[str]
+                List of tokens in text b as as trings.
+            dist : Callable
+                Function for computing distance between
+                tokens of text a and b.
+            default : Callable
+                Function for returning default
+                value between tokens of text a and b
+                in cases where the dist function fails to
+                return a value.
+
+        Returns
+        ---------
+            pdist : np.ndarray
+                Pairwise distance matrix of shape m x n, where
+                m and n are the lengths of texts a and b, respectively.
+        """
+        pdist = np.zeros((len(text_a), len(text_b)))
+        for i, x in enumerate(text_a):
+            for j, y in enumerate(text_b):
+                try:
+                    d = dist(x, y)
+
+                except (KeyError, AttributeError):
+                    # faster to check errors vs handling nan values.
+                    d = default(x, y)
+
+                pdist[i, j] = d
+
+        return pdist
+
+    @staticmethod
+    def aggregate_unidirectional_distances(d1: float, d2: float) -> float:
+        # per the original paper, choose maximum value as
+        # the representative distance
+        return max(d1, d2)
+
+    @staticmethod
+    def min_distance_unidirectional(pdist: "np.array"):
+        """
+        Get minimum distance in one direction.
+
+        Parameters
+        ---------
+            pdist : np.array
+                Pairwise distance matrix.
+
+        Returns
+        ---------
+            distance : float
+                Minimum transport cost.
+        """
+        d = 0
+        for i in pdist:
+            d += min(i)
+
+        return d
+
+    @classmethod
+    def _finalize_distance_computation(cls, pdist: np.ndarray) -> float:
+        # get unidirectional distances
+        d1 = self.min_distance_unidirectional(pdist)
+        # transposing the array allows us to get min dist
+        # in the opposite direction
+        d2 = self.min_distance_unidirectional(pdist.T)
+        # aggregate unidirectional distances
+        return self.aggregate_unidirectional_distances(d1, d2)
 
     def get_distance(self, text_a: list, text_b: list) -> float:
-        # todo: generalize get_pairwise_distance_matrix
-        # todo: get distance unidirectional
-        # todo: get distance unidirectional
-        # todo: 'aggregate_unidirectional distances'
-        return None
+        # distance function: euclidean distance
+        distance = lambda a, b: distance_scipy.cosine(
+            self.vectors[a], self.vectors[b]
+        )
+        # default is arbitrary value because it will never be used
+        default = lambda a, b: 1
+        # get pairwise distances
+        pdist = self.get_pairwise_distance_matrix(
+            text_a, text_b, dist=distance, default=default
+        )
+        dist = self._finalize_distance_computation(pdist)
+
+        return dist
 
 
 class RelRWMD(RWMD):
-    def __init__(self):
-        # todo: can probably copy from parent
-        return None
+    """
+    Relaxed Related Word Mover's Distance cf Werner (2019).
+    Use a precomputed cache to try and lookup distances
+    for tokens in compared documents, otherwise use a
+    default maximum value. Otherwise the lower bound is
+    computed as the RWMD, where the max of the two
+    unidirectional values is taken.
+    """
 
-    # todo: inherit preprocessing from parent
-    # todo: modify methods to achieve the relrwmd
+    def __init__(self, language: str, cache_path: str):
+        self.language = language
+        # load the cache
+        self.cache = self._load_cache(cache_path)
+        self.stopwords = stopwords.words(language)
+
+    @staticmethod
+    def _load_cache(cache_path) -> dict:
+        """
+        Loads lookup tables from file.
+        """
+        with open(f"{cache_path}\\table", "rb") as f:
+            cache = pickle.load(f)
+
+        return cache
+
+    def get_distance(self, text_a: list, text_b: list) -> float:
+        # distance function: cache lookup
+        distance = lambda a, b: self.cache[a][b]
+        # default maximum value cf Werner (cMax)
+        default = lambda a, b: 1
+        # get pairwise distances
+        pdist = self.get_pairwise_distance_matrix(
+            text_a, text_b, dist=distance, default=default
+        )
+        dist = self._finalize_distance_computation(pdist)
+
+        return dist
 
 
 class BWMD(RelRWMD):
     """
-    .
+    Binarized Word Mover's Distance. Similar in
+    spirit to the RelRWMD, but instead of a default maximum
+    value the normalized hamming distance between binary
+    encoded vectors is used. Instead of taking the maximum of
+    two unidirectional transport costs, these values are
+    summed and then divided by two.
     """
 
     def __init__(
@@ -223,43 +394,20 @@ class BWMD(RelRWMD):
         size_vocab: int,
         language: str,
         dim: int = None,
-        raw_hamming: bool = False,
     ) -> None:
-        """
-        .
-        """
-        # Set vocab size.
-        self.size_vocab = size_vocab
-        path_to_vectors = f"{model_path}\\vectors.txtc"
-        self.dim = dim
-        dtype = "bool_"
-        if not raw_hamming:
-            with open(f"{model_path}\\table", "rb") as f:
-                self.cache = pickle.load(f)
-
         # Load the vectors and the words.
         vectors, words = load_vectors(
-            path_to_vectors,
-            size=self.size_vocab,
-            expected_dimensions=self.dim,
-            expected_dtype=dtype,
+            f"{model_path}\\vectors.txtc",
+            size=size_vocab,
+            expected_dimensions=dim,
+            expected_dtype="bool_",
         )
-
         # Convert to a dictionary for fast lookups.
         self.vectors = convert_vectors_to_dict(vectors, words)
         # Cast words to set for faster lookup.
         self.words = set(words)
-
-        # todo: refactor given inheritance structure
-        super().__init__(language)
-
-    def _get_text_mask(self, text: list) -> list:
-        mask = [
-            False if a in self.stopwords or not a in self.words else True
-            for a in text
-        ]
-
-        return mask
+        # finish initialization
+        super().__init__(language, model_path)
 
     def get_distance(self, text_a: list, text_b: list) -> float:
         """
@@ -307,7 +455,15 @@ class BWMD(RelRWMD):
             # Divide by length of first text to normalize the score.
             return wmd / pdist.shape[0]
 
-        pdist = self.get_pairwise_distance_matrix(text_a, text_b)
+        # distance is cache lookup just like with relrwmd
+        distance = lambda a, b: self.cache[a][b]
+        # default is hamming distance
+        default = lambda a, b: hamming_distance(
+            self.vectors[a], self.vectors[b]
+        )
+        pdist = self.get_pairwise_distance_matrix(
+            text_a, text_b, distance=distance, default=default
+        )
 
         if pdist.shape[0] == 0 or pdist.T.shape[0] == 0:
             # Return a default maximum value if we couldn't
@@ -325,20 +481,6 @@ class BWMD(RelRWMD):
 
         # Divide by two to normalize the score.
         return bwmd / 2
-
-    def get_pairwise_distance_matrix(self, a, b):
-        pdist = np.zeros((len(a), len(b)))
-        for i, x in enumerate(a):
-            for j, y in enumerate(b):
-                try:
-                    d = self.cache[x][y]
-
-                except (KeyError, AttributeError):
-                    d = hamming_distance(self.vectors[x], self.vectors[y])
-
-                pdist[i, j] = d
-
-        return pdist
 
     def pairwise(self, corpus: list) -> "np.array":
         """
