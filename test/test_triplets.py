@@ -2,7 +2,7 @@ import unittest
 from bwmd.tools import load_vectors, convert_vectors_to_dict
 from bwmd.compressor import Compressor
 from bwmd.partition import build_partitions_lookup_tables
-from bwmd.distance import BWMD, WMD, RWMD, RelRWMD, WCD, TFIDF
+from bwmd.distance import BWMD, WMD, RWMD, RelRWMD, WCD, BOW
 from tqdm import tqdm
 import os
 import pickle
@@ -138,9 +138,9 @@ def evaluate_triplets_task(
             evaluation was made.
     """
     # organize eval metrics
-    metrics = ["wmd", "wcd", "rwmd", "relrwmd", "tfidf", "tfidfl1", "bwmd"]
+    metrics = ["wmd", "wcd", "rwmd", "relrwmd", "bow", "bow-l1", "bwmd"]
     # organize corresponding objects
-    objects = [WMD, WCD, RWMD, RelRWMD, TFIDF, TFIDF, BWMD]
+    objects = [WMD, WCD, RWMD, RelRWMD, BOW, BOW, BWMD]
     # organize results in hash table
     results = get_empty_results_dict(metrics)
     # start timer
@@ -179,12 +179,12 @@ def evaluate_triplets_task(
             "l1_norm": False,
             "language": "english",
             "corpus": corpus_joined,
-        },  # tfidf
+        },  # bow
         {
             "l1_norm": True,
             "language": "english",
             "corpus": corpus_joined,
-        },  # tfidfl1
+        },  # bow-l1
         {
             "model_path": lookup_table_path,
             "dim": encoded_dim,

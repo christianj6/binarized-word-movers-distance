@@ -15,7 +15,9 @@ BWMD distance using these cached tables.
 
 from bwmd.tools import load_vectors, convert_vectors_to_dict, hamming_distance
 from gensim.corpora.dictionary import Dictionary
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.preprocessing import Normalizer
+from sklearn.pipeline import Pipeline
 import scipy.spatial.distance as distance_scipy
 from pyemd import emd
 from nltk.corpus import stopwords
@@ -178,20 +180,28 @@ class WCD(AbstractDistanceMetric):
         )
 
 
-class TFIDF(AbstractDistanceMetric):
+class BOW(AbstractDistanceMetric):
     """
-    Cosine distance between TFIDF vectors
+    Cosine distance between BOW vectors
     for each text. First a vectorizer must be fitted
     to the entire corpus before each text
     can be vectorized during distance calculation.
     """
 
     def __init__(self, corpus: list, language: str, l1_norm=False):
-        # ability to use different normalization strategies
-        # to address concerns by Sato (2021).
-        norm = "l1" if l1_norm is True else "l2"
-        self.vectorizer = TfidfVectorizer(norm=norm)
-        self.vectorizer.fit(corpus)
+        # organize the pipes starting with bow
+        pipes = [
+            ("bow", CountVectorizer()),
+        ]
+        # ability to use normalization strategy
+        # to explore concerns by Sato (2021).
+        if l1_norm is True:
+            # add norm pipe if requested
+            pipes.append(("norm", Normalizer(norm="l1")))
+
+        self.pipeline = Pipeline(pipes)
+        # fit the pipeline
+        self.pipeline.fit(corpus)
         super().__init__(language)
 
     def _get_text_mask(self, text) -> list:
@@ -210,7 +220,7 @@ class TFIDF(AbstractDistanceMetric):
 
     def get_distance(self, text_a: str, text_b: str) -> float:
         # transform raw texts to tfidf representation.
-        ret = self.vectorizer.transform([text_a, text_b])
+        ret = self.pipeline.transform([text_a, text_b])
 
         return distance_scipy.cosine(ret[0].A, ret[1].A)
 
