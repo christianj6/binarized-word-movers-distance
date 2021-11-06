@@ -138,9 +138,9 @@ def evaluate_triplets_task(
             evaluation was made.
     """
     # organize eval metrics
-    metrics = ["wmd", "wcd", "rwmd", "relrwmd", "bow", "bow-l1", "bwmd"]
+    metrics = ["wmd", "wcd", "rwmd", "relrwmd", "bow-l1", "bwmd"]
     # organize corresponding objects
-    objects = [WMD, WCD, RWMD, RelRWMD, BOW, BOW, BWMD]
+    objects = [WMD, WCD, RWMD, RelRWMD, BOW, BWMD]
     # organize results in hash table
     results = get_empty_results_dict(metrics)
     # start timer
@@ -175,11 +175,6 @@ def evaluate_triplets_task(
         {"language": "english", "vectors": vectors_original_dict},  # wcd
         {"language": "english", "vectors": vectors_original_dict},  # rwmd
         {"language": "english", "cache_path": lookup_table_path},  # relrwmd
-        {
-            "l1_norm": False,
-            "language": "english",
-            "corpus": corpus_joined,
-        },  # bow
         {
             "l1_norm": True,
             "language": "english",
