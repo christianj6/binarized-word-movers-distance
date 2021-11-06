@@ -611,7 +611,13 @@ class Compressor:
                 Save transformed vectors to file.
         """
         # Create a folder to save compressed vectors.
-        output_dir = f"{''.join(path.split('.')[0:-1])}"
+
+        cwd = os.getcwd()
+        dr = "".join(path.split(".")[0:-1]).strip("/")
+        output_dir = f"{cwd}\\{dr}"
+
+        print(output_dir)
+
         os.makedirs(output_dir, exist_ok=True)
         # Path to export transformed vectors.
         export_path = f"{output_dir}\\vectors.txtc"

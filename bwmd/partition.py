@@ -89,7 +89,9 @@ def build_partitions_lookup_tables(
         # Begin with the full vector space.
         partitions = [list(vectors.items())]
         # Make a list of token to global ids.
-        global_ids = {entry[0]: idx for idx, entry in enumerate(vectors.items())}
+        global_ids = {
+            entry[0]: idx for idx, entry in enumerate(vectors.items())
+        }
         # List of centroids.
         final_centroids = []
         # Keep track of partition sizes to identify plateau as secondary condition
@@ -101,7 +103,8 @@ def build_partitions_lookup_tables(
         # ie if a moderate 'convergence' is seen.
         while (
             len(partitions) < k
-            and not length_of_partitions[-2:].count(length_of_partitions[-2]) == 2
+            and not length_of_partitions[-2:].count(length_of_partitions[-2])
+            == 2
         ):
             # Empty list for updated partitions at end of iteration.
             updated_partitions = []
@@ -111,7 +114,9 @@ def build_partitions_lookup_tables(
             # Iterate through the partitions and bisect.
             for j, partition in enumerate(partitions):
                 # Map partition indices to tokens for retrieval.
-                id_to_token = {idx: entry[0] for idx, entry in enumerate(partition)}
+                id_to_token = {
+                    idx: entry[0] for idx, entry in enumerate(partition)
+                }
                 # If the partition is already below a certain size, namely the
                 # length of the total vector space divided by the intended k,
                 # this partition is immediately added to the final set of partitions
@@ -158,7 +163,8 @@ def build_partitions_lookup_tables(
                         # increasing memory for little gain. Since the hamming
                         # distance is so cheap anyhow, this is okay.
                         distance = hamming_distance(
-                            vectors[id_to_token[idx]], vectors[id_to_token[centroid]]
+                            vectors[id_to_token[idx]],
+                            vectors[id_to_token[centroid]],
                         )
                         distances.append(distance)
 
@@ -192,19 +198,26 @@ def build_partitions_lookup_tables(
             length_of_partitions.append(len(partitions))
             final_centroids = iteration_centroids
 
-        id_to_token = {idx: entry[0] for idx, entry in enumerate(vectors.items())}
+        id_to_token = {
+            idx: entry[0] for idx, entry in enumerate(vectors.items())
+        }
         # Update the list and dict to use just the tokens because it's easier for later retrieval.
         final_centroids = [id_to_token[idx] for idx in final_centroids]
         # When loop terminates, construct the output from the partitions.
         output = dict(
             zip(
                 final_centroids,
-                [[token for token, code in partition] for partition in partitions],
+                [
+                    [token for token, code in partition]
+                    for partition in partitions
+                ],
             )
         )
         # Token to centroid mapping
         token_to_centroid = {
-            token: centroid for centroid, tokens in output.items() for token in tokens
+            token: centroid
+            for centroid, tokens in output.items()
+            for token in tokens
         }
 
         return output, token_to_centroid
@@ -214,8 +227,12 @@ def build_partitions_lookup_tables(
     k = 2 ** I
     print("Making 100 partitionings of size", str(k))
     # Make directory to store the partitions on disk.
-    outputs_dir = f"{''.join(real_value_path.split('.')[0:-1])}"
+
+    cwd = os.getcwd()
+    dr = "".join(real_value_path.split(".")[0:-1]).strip("/")
+    outputs_dir = f"{cwd}\\{dr}"
     partitions_dir = f"{outputs_dir}\\tables\\partitions"
+
     os.makedirs(partitions_dir, exist_ok=True)
     start = time.time()
     # Perform partitioning on the data.
@@ -238,7 +255,11 @@ def build_partitions_lookup_tables(
     print("Loading partitionings ...")
     for i in tqdm(range(n_partitioning_iterations)):
         with open(f"{partitions_dir}\\{i}", "rb") as f:
-            partitioning_iterations.append(pickle.load(f))
+            try:
+                partitioning_iterations.append(pickle.load(f))
+
+            except ValueError as e:
+                print(e)
 
     # For each token, consolidate and save
     # all words associated with that token, according
