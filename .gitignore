@@ -163,3 +163,10 @@ glove-512/
 ccde300/
 
 glove/
+
+# ignore created model dirs
+tables/
+*.txtc
+partitions/
+*.vec
+table
