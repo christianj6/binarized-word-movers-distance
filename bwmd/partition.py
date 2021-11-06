@@ -316,6 +316,7 @@ def build_partitions_lookup_tables(
     # tokens, extracting the top 20 as ANN.
     print("Computing cosine distances for each token ...")
     out = {}
+    cmax = []
     for token, vector in tqdm(vectors.items()):
         try:
             # Compute and save the cosine distances for the output tables.
@@ -331,11 +332,18 @@ def build_partitions_lookup_tables(
             continue
 
         # Retrieve the original token and first 20 tokens.
-        words = sorted(words, key=lambda x: x[1])[:21]
+        words = sorted(words, key=lambda x: x[1])
+        first_twenty = words[:21]
+        # get distances of the rest to calculate a cmax value
+        rest = words[21:]
+        # store for calculating cmax value
+        cmax.extend([d for _, d in rest])
         # Organize a lookup table for these distances.
         table = {word: distance for word, distance in words}
         out[token] = table
 
+    # cmax is average of non-nn distance values
+    print(f"cmax: {sum(cmax) / len(cmax)}")
     # Save the key mapping all tokens to associated words.
     with open(f"{outputs_dir}\\table", "wb") as f:
         pickle.dump(out, f)
