@@ -78,7 +78,7 @@ def get_encoded_vectors(
     # fit autoencder
     vectors_original, words_original = load_vectors(
         path=fp,
-        size=100_000,
+        size=300_000,
         expected_dimensions=original_dimensions,
         skip_first_line=True,
     )
@@ -89,11 +89,11 @@ def get_encoded_vectors(
     )
     compressor.fit(vectors_original, epochs=10)
     # save encoded vectors
-    output_dir = compressor.transform(fp, save=True, n_vectors=30_000)
+    output_dir = compressor.transform(fp, save=True, n_vectors=200_000)
     # create lookup tables for the exported model
     vectors_encoded, words = load_vectors(
         path=f"{output_dir}\\vectors.txtc",
-        size=30_000,
+        size=200_000,
         expected_dimensions=reduced_dimensions,
         expected_dtype="bool_",
     )
@@ -188,7 +188,7 @@ def evaluate_triplets_task(
         {
             "model_path": lookup_table_path,
             "dim": encoded_dim,
-            "size_vocab": 30_000,
+            "size_vocab": 200_000,
             "language": "english",
         },  # bwmd
     ]
@@ -223,7 +223,7 @@ def evaluate_triplets_task(
 
         end = time.time()
         # update online computations
-        results["time_online"][name] = ((end - start) / 60) / n_samples
+        results["time_online"][name] = (end - start) / n_samples
         # update score; simple average of correct/incorrect triplets
         results["test_error"][name] = sum(score) / len(score)
 
@@ -241,7 +241,7 @@ def print_results(results: dict) -> None:
 
     print("-" * 20)
     print()
-    print("Online Computation Time in Minutes/Iter")
+    print("Online Computation Time in Seconds/Iter")
     for model, value in results["time_online"].items():
         print(f"{model}\t{value}")
 
@@ -263,9 +263,9 @@ class TestCaseTriplets(unittest.TestCase):
     # names of models for reporting
     MODELS = ["fasttext"]
     # absolute path to corresponding vectors
-    VECTOR_PATHS = ["./crawl-300d-2M.vec"]
+    VECTOR_PATHS = ["crawl-300d-2M.vec"]
     # number of samples to use from wikipedia corpus
-    N_SAMPLES = 5
+    N_SAMPLES = 300
 
     def test_wikipedia(self):
         """
