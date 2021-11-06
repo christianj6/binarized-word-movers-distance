@@ -24,7 +24,6 @@ setup(
         "pyemd==0.5.1",
         "gensim==3.8.3",
         "scikit-learn==0.24.2",
-        "scipy==1.4.1",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
