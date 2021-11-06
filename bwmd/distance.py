@@ -384,7 +384,7 @@ class RelRWMD(RWMD):
         # distance function: cache lookup
         distance = lambda a, b: self.cache[a][b]
         # default maximum value cf Werner (cMax)
-        default = lambda a, b: 1
+        default = lambda a, b: 0.7
         # get pairwise distances
         pdist = self.get_pairwise_distance_matrix(
             text_a, text_b, dist=distance, default=default
