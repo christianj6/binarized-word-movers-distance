@@ -2,6 +2,8 @@
 
 Scalable text similarity with encoded embedding distance.
 
+[![PyPI](https://img.shields.io/pypi/v/bwmd)](https://pypi.org/project/bwmd/)
+
 ***
 
 ![BBC MDS](https://github.com/christianj6/binarized-word-movers-distance/raw/master/doc/mds_bbc.png)
